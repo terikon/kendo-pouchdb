@@ -258,7 +258,7 @@ describe("kendo-pouchdb", function () {
                         age: 5,
                         birthDate: new Date(2015, 4, 1),
                         male: true
-                    }
+                    };
                 },
                 createDbDoc = function (id, name) {
                     var doc = createDatasourceDoc(id, name);

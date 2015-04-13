@@ -20,7 +20,7 @@ module.exports = function(grunt) {
 		},
 		
 		jshint: {
-			all: ['Gruntfile.js', 'kendo-pouchdb.js', 'tests/**/*.js']
+			all: ['Gruntfile.js', 'kendo-pouchdb.js', 'tests/spec/*.js', 'tests/*.js']
 		},
 		
 		jasmine: {
