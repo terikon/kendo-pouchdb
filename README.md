@@ -10,12 +10,25 @@ of PouchDB database, with bi-directional synchronization between them.
 
 # Table of contents
 
+- [Demo](#demo)
 - [Work status](#work-status)
 - [Install](#install)
 - [Use](#use)
 - [API](#api)
 - [Things to consider for future versions](#things-to-consider-for-future-versions)
 - [Contribute](#contribute)
+
+# Demo
+
+See online demo of kendo-pouchdb [here](<http://terikon.github.io/kendo-pouchdb/demo/kendo-pouchdb-grid.html>).
+
+Data is being put into *demodb* database, and will be presented with kendo grid. You can create/update/delete records,
+and they will persist in the database. Just reload the page to see your data again.
+
+Using [PouchDB Inspector](<https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa>)
+is recommended with demo. If you change a document in database with this tool, the grid will present your change immediately. 
+
+Demos reside in [demo](https://github.com/terikon/kendo-pouchdb/tree/master/demo) folder.
 
 # Work status
 
@@ -38,6 +51,35 @@ In progress
 TODO
 
 # Use
+
+Include kendo-pouchdb.js after Kendo and PouchDB libraries.
+
+Then create pouchdb datasource:
+
+```js
+var dataSource = new kendo.data.DataSource({
+    type: "pouchdb",
+    transport: {
+        pouchdb: {
+            db: db,
+            idFactory: function (data) {
+                return data.ProductID;
+            }
+        }
+    });
+```
+Do not supply id field in schema like this, as _id field will be used as id field:
+```js
+schema: {
+    model: {
+        id: "ProductID", //This is wrong, do not supply id to kendo-pouchdb
+        fields: {
+            ProductID: { type: number },
+            ProductName: { type: string }
+        }
+    }
+}
+```
 
 TODO
 
