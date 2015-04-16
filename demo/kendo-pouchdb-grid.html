@@ -7,7 +7,7 @@
                 font-family: Arial, Helvetica, sans-serif;
             }
         </style>
-        <title></title>
+        <title>kendo-pouchdb demo</title>
         <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.common-material.min.css" />
         <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.material.min.css" />
         <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.dataviz.min.css" />
@@ -108,10 +108,21 @@
 
     </head>
     <body>
+        <div class="k-block k-info-colored">
+            <p>This Kendo UI Grid is bound to PouchDB database. As you modify the data, it will be persisted. Reload the page to see for yourself.</p>
+            <p>Use <a href="https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa">PouchDB inspector</a> to modify demodb database. Modifications will appear immediately.</p>
+        </div>
+        <div>
+            
+        </div>
+
         <div id="example">
             <div id="grid"></div>
         </div>
-
+    
+        <div class="k-block k-info-colored">
+            Go to <a href="https://github.com/terikon/kendo-pouchdb">kendo-pouchdb github page</a> for more information.
+        </div>
 
     </body>
 </html>
