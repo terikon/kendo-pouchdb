@@ -1,0 +1,117 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            html {
+                font-size: 12px;
+                font-family: Arial, Helvetica, sans-serif;
+            }
+        </style>
+        <title></title>
+        <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.common-material.min.css" />
+        <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.material.min.css" />
+        <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.dataviz.min.css" />
+        <link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.dataviz.material.min.css" />
+
+        <script src="http://cdn.kendostatic.com/2015.1.408/js/jquery.min.js"></script>
+        <script src="http://cdn.kendostatic.com/2015.1.408/js/kendo.all.min.js"></script>
+        
+        <script src="http://cdn.jsdelivr.net/pouchdb/3.4.0/pouchdb.min.js"></script>
+
+        <script src="../kendo-pouchdb.js"></script>
+
+        <script src="products.js"></script>
+        
+        <script>
+            var db, autoincrement = 100,
+
+                //Will create datasource and kendo grid
+                startApp = function () {
+
+                    $(document).ready(function () {
+
+                        var dataSource = new kendo.data.DataSource({
+                            type: "pouchdb",
+                            transport: {
+                                pouchdb: {
+                                    db: db,
+                                    idFactory: function (data) {
+                                        return data.ProductID;
+                                    }
+                                }
+                            },
+                            //batch: true, //TODO
+                            //pageSize: 20, //TODO
+                            schema: {
+                                model: {
+                                    //Do not specify id here, id:"_id" will be used.
+                                    fields: {
+                                        ProductID: { editable: false, nullable: true },
+                                        ProductName: { validation: { required: true } },
+                                        UnitPrice: { type: "number", validation: { required: true, min: 1 } },
+                                        Discontinued: { type: "boolean" },
+                                        UnitsInStock: { type: "number", validation: { min: 0, required: true } }
+                                    }
+                                }
+                            },
+                            change: function (e) {
+                                if (e.action == "add") {
+                                    var item = e.items[0];
+                                    item.ProductID = autoincrement;
+                                    autoincrement++;
+                                }
+                            }
+                        });
+
+                        $("#grid").kendoGrid({
+                            dataSource: dataSource,
+                            //pageable: true, //TODO
+                            height: 550,
+                            toolbar: ["create"],
+                            columns: [
+                                "ProductName",
+                                { field: "UnitPrice", title: "Unit Price", format: "{0:c}", width: "120px" },
+                                { field: "UnitsInStock", title: "Units In Stock", width: "120px" },
+                                { field: "Discontinued", width: "120px" },
+                                { command: ["edit", "destroy"], title: "&nbsp;", width: "250px" }
+                            ],
+                            editable: "inline"
+                        });
+                    });
+
+                },
+
+                //Will fill database with demo data
+                fillData = function () {
+                    $.each(products, function (_, product) { product._id = "" + product.ProductID; });
+                    return db.bulkDocs(products);
+                };
+
+
+            //Here our app starts
+            new PouchDB('demodb')
+                .then(function (createdDb) {
+                    db = createdDb;
+                    db.allDocs({limit: 0})
+                        .then(function (result) {
+                            if (result.total_rows === 0) {
+                                return fillData();
+                            }
+                        })
+                        .then(startApp);
+                })
+                .catch(function (error) {
+                    console.log("PouchDB database creation error:" + error.message);
+                });
+
+        </script>
+
+    </head>
+    <body>
+        <div id="example">
+            <div id="grid"></div>
+        </div>
+
+
+    </body>
+</html>
