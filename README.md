@@ -5,7 +5,7 @@ Connecting [DataSource](<http://docs.telerik.com/kendo-ui/framework/datasource/o
 object of [Kendo UI](<http://www.telerik.com/kendo-ui>) with
 [PouchDB](<http://pouchdb.com/>) database.
 
-Kendo UI widgets can be bound to data with kendo.data.DataSource object. With this project DataSource can be used on top
+Kendo UI widgets can be bound to data with *kendo.data.DataSource* object. With this project DataSource can be used on top
 of PouchDB database, with bi-directional synchronization between them. 
 
 # Table of contents
@@ -21,13 +21,16 @@ of PouchDB database, with bi-directional synchronization between them.
 
 Implemented
 - CRUD operations on PouchDB database arrive in DataSource in form of push events.
-- CRUD operations on DataSource are synced with PouchDB when sync method is called (currently only Create).
-- Tests for most important operations.
+- CRUD operations on DataSource are synced with PouchDB when sync method is called.
+- Tests for implemented functionality.
 
 In progress
-- Implement all CRUD operations.
 - Implement filtering.
 - Implement grouping.
+- Batch option support.
+- Support for PouchDB Collate.
+- Add demos and jsbin/dojo examples.
+- Add the lib to CDN.
 - Write documentation.
 
 # Install

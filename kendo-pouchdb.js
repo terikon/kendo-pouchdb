@@ -7,7 +7,8 @@
     }
 
     (function ($) {
-        //add pouchdb transport
+
+        //Create pouchdb transport
         var pouchdbTransport = kendo.data.RemoteTransport.extend({
             init: function (options) {
                 var pouchdb = options && options.pouchdb ? options.pouchdb : {},
@@ -64,32 +65,7 @@
 
             },
 
-            //_crud: function (options, type) {
-            //    var hub = this.hub;
-
-            //    var server = this.options.signalr.server;
-
-            //    if (!server || !server[type]) {
-            //        throw new Error(kendo.format('The "server.{0}" option must be set.', type));
-            //    }
-
-            //    var args = [server[type]];
-
-            //    var data = this.parameterMap(options.data, type);
-
-            //    if (!$.isEmptyObject(data)) {
-            //        args.push(data);
-            //    }
-
-            //    this.promise.done(function () {
-            //        hub.invoke.apply(hub, args)
-            //            .done(options.success)
-            //            .fail(options.error);
-            //    });
-            //},
-
             read: function (options) {
-                //    this._crud(options, "read");
 
                 this.db.allDocs({ include_docs: true })
                     .then(function (response) {
@@ -102,15 +78,10 @@
 
             },
 
-            create: function (options) {
-                //    this._crud(options, "create");
-
-                var data = options.data;
-
-                //TODO: use pouchdb-collate, as described [here](http://pouchdb.com/2014/06/17/12-pro-tips-for-better-code-with-pouchdb.html).
-                data._id = "" + this.idFactory(data);
-
-                this.db.put(data)
+            //Does not support read.
+            //operation: function(data), called on this.
+            _crud: function (type, data, options, operation) {
+                operation.call(this, data)
                     .then(function (response) {
                         data._rev = response.rev;
                         options.success(data);
@@ -123,13 +94,40 @@
                     });
             },
 
-            //update: function (options) {
-            //    this._crud(options, "update");
-            //},
+            create: function (options) {
 
-            //destroy: function (options) {
-            //    this._crud(options, "destroy");
-            //}
+                var data = options.data;
+
+                //TODO: use pouchdb-collate, as described [here](http://pouchdb.com/2014/06/17/12-pro-tips-for-better-code-with-pouchdb.html).
+                data._id = "" + this.idFactory(data);
+
+                this._crud("create", data, options, function (d) {
+                    return this.db.put(d);
+                });
+
+            },
+
+            update: function (options) {
+
+                var data = options.data;
+
+                this._crud("update", data, options, function (d) {
+                    return this.db.put(d);
+                });
+
+            },
+
+            destroy: function (options) {
+                //    this._crud(options, "destroy");
+
+                var data = options.data;
+
+                this._crud("destroy", data, options, function (d) {
+                    return this.db.remove(d);
+                });
+
+            }
+
         });
 
         $.extend(true, kendo.data, {
@@ -142,7 +140,8 @@
             DataSource: kendo.data.DataSource
         };
 
-        //replace DataSource
+        //Replace DataSource
+        //Remember to check _ispouchdb property on each overriden function
         kendo.data.DataSource = kendo.data.DataSource.extend({
             //_ispouchdb property will be set if pouchdb type
 

@@ -296,7 +296,7 @@ describe("kendo-pouchdb", function () {
 
                     beforeEach(function (done) {
                         //For kendo DataSource new row is row which has row.id==row._defaultId. id is set to row.get(row.idField).
-                        newDoc = createDatasourceDoc(100, "Petya");
+                        newDoc = createDatasourceDoc(100, "Added to datasource");
 
                         var dbChangePromise = testHelper.waitForDbChanges(db, 1);
                         pushSpy.reset();
@@ -324,6 +324,81 @@ describe("kendo-pouchdb", function () {
                     it("should assign _rev to row of datasource", function () {
                         var newModel = datasource.get(100);
                         expect(newModel._rev).toBeTruthy();
+                    });
+
+                });
+
+                describe("and updating a row to datasource", function () {
+
+                    var kendoRow;
+
+                    beforeEach(function (done) {
+
+                        kendoRow = datasource.get(5);
+
+                        var dbChangePromise = testHelper.waitForDbChanges(db, 1);
+                        pushSpy.reset();
+
+                        kendoRow.set('name', "Changed in datasource");
+                        var syncPromise = datasource.sync();
+
+                        $.when(dbChangePromise, syncPromise).then(done);
+                    });
+
+                    it("should update the row in PouchDB", function (done) {
+                        db.get("5").then(function (doc) {
+                            expect(doc.name).toEqual(kendoRow.name);
+                            done();
+                        }).catch(function (err) {
+                            console.log("ERR:" + err);
+                        });
+                    });
+
+                    it("should not cause push event back to datasource", function () {
+                        expect(pushSpy.events.length).toEqual(0);
+                    });
+
+                    it("should update _rev in row of datasource", function (done) {
+                        db.get("5").then(function (doc) {
+                            expect(kendoRow._rev).toEqual(doc._rev);
+                            done();
+                        }).catch(function (err) {
+                            console.log("ERR:" + err);
+                        });
+                    });
+
+                });
+
+                describe("and deleting a row from datasource", function () {
+
+                    var kendoRow;
+
+                    beforeEach(function (done) {
+
+                        kendoRow = datasource.get(5);
+
+                        var dbChangePromise = testHelper.waitForDbChanges(db, 1);
+                        pushSpy.reset();
+
+                        datasource.remove(kendoRow);
+                        var syncPromise = datasource.sync();
+
+                        $.when(dbChangePromise, syncPromise).then(done);
+                    });
+
+                    it("should delete the row in PouchDB", function (done) {
+                        db.get("5").catch(function (err) {
+                            if (err.status === 404) {
+                                expect(true).toBe(true); //TODO: How to pass a test in jasmine?
+                                done();
+                            } else {
+                                console.log("ERR:" + err);
+                            }
+                        });
+                    });
+
+                    it("should not cause push event back to datasource", function () {
+                        expect(pushSpy.events.length).toEqual(0);
                     });
 
                 });
