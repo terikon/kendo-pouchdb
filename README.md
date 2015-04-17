@@ -68,7 +68,7 @@ var dataSource = new kendo.data.DataSource({
     transport: {
         pouchdb: {
             db: db,
-            idFactory: function (data) {
+            idFactory: function (data) { //This can be just string
                 return data.ProductID;
             }
         }
@@ -86,6 +86,9 @@ schema: {
     }
 }
 ```
+
+_id will be created by applying [pouchCollate.toIndexableString](<https://github.com/pouchdb/collate/#toindexablestringobj>)
+to data provided by idFactory, so data will be stored sorted by model id, either it string or numeric type.
 
 TODO
 
