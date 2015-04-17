@@ -98,8 +98,8 @@
 
                 var data = options.data;
 
-                //TODO: use pouchdb-collate, as described [here](http://pouchdb.com/2014/06/17/12-pro-tips-for-better-code-with-pouchdb.html).
-                data._id = "" + this.idFactory(data);
+                //use pouchdb-collate, as described [here](http://pouchdb.com/2014/06/17/12-pro-tips-for-better-code-with-pouchdb.html).
+                data._id = pouchCollate.toIndexableString(this.idFactory(data));
 
                 this._crud("create", data, options, function (d) {
                     return this.db.put(d);
@@ -203,6 +203,16 @@
                 }
                 return original.DataSource.fn.pushCreate.apply(this, arguments);
             }
+
+            //TODO: is it necessary?
+            //gets model id and calls original DataSource's get with id transformed by pouchCollate.toIndexableString.
+            //get: function (id) {
+            //    if (this._ispouchdb) {
+            //        return original.DataSource.fn.get.call(this, pouchCollate.toIndexableString(id));
+            //    }
+            //    return original.DataSource.fn.get.apply(this, arguments);
+            //}
+
         });
 
     })(window.kendo.jQuery);

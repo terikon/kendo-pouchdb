@@ -17,13 +17,15 @@
         <script src="http://cdn.kendostatic.com/2015.1.408/js/kendo.all.min.js"></script>
         
         <script src="http://cdn.jsdelivr.net/pouchdb/3.4.0/pouchdb.min.js"></script>
+		<!-- Currently there's no pouchdb-collate in CDN, so we use local folder instead -->
+		<script src="../node_modules/pouchdb-collate/dist/pouchdb-collate.js"></script>
 
         <script src="../kendo-pouchdb.js"></script>
 
         <script src="products.js"></script>
         
         <script>
-            var db, autoincrement = 100,
+            var db, autoincrement = 100, //TODO: autoIncrement should be stored in db
 
                 //Will create datasource and kendo grid
                 startApp = function () {
@@ -83,7 +85,7 @@
 
                 //Will fill database with demo data
                 fillData = function () {
-                    $.each(products, function (_, product) { product._id = "" + product.ProductID; });
+                    $.each(products, function (_, product) { product._id = pouchCollate.toIndexableString(product.ProductID); });
                     return db.bulkDocs(products);
                 };
 
