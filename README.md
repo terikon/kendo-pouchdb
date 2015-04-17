@@ -6,7 +6,10 @@ object of [Kendo UI](<http://www.telerik.com/kendo-ui>) with
 [PouchDB](<http://pouchdb.com/>) database.
 
 Kendo UI widgets can be bound to data with *kendo.data.DataSource* object. With this project DataSource can be used on top
-of PouchDB database, with bi-directional synchronization between them. 
+of PouchDB database, with bi-directional synchronization between them.
+
+DataSource can be with sync with PouchDB local storage, like IndexedDB or Web SQL. And server side changes can be pushed
+into DataSource in real time with CouchDB database.
 
 # Table of contents
 
