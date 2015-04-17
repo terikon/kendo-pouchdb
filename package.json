@@ -40,7 +40,8 @@
   
   "dependencies": {
 	"jquery": "*",
-	"pouchdb": "^3.4.0"
+	"pouchdb": "^3.4.0",
+	"pouchdb-collate": "^1.2.0"
   },
   
   "devDependencies": {

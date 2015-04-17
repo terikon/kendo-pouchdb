@@ -96,7 +96,7 @@ describe("kendo-pouchdb", function () {
 
         });
 
-        describe("db and idFactory provided and model.id not provided", function() {
+        describe("db and idFactory provided and model.id not provided", function () {
 
             var createDatasource = function () {
                 datasource = new kendo.data.DataSource({
@@ -134,6 +134,7 @@ describe("kendo-pouchdb", function () {
                 schema: {
                     model: {
                         fields: {
+                            "myId": { type: "number" },
                             "name": { type: "string" },
                             "age": { type: "number" },
                             "birthDate": { type: "date" },
@@ -165,7 +166,7 @@ describe("kendo-pouchdb", function () {
             describe("putting a document to PouchDB", function () {
 
                 var doc = {
-                    _id: "3",
+                    _id: pouchCollate.toIndexableString(3),
                     myId: 3,
                     name: "Vasya",
                     age: 5,
@@ -185,7 +186,7 @@ describe("kendo-pouchdb", function () {
                     expect(pushSpy.events[0].e.type).toEqual("create");
                     expect(pushSpy.events[0].e.items.length).toEqual(1);
                     var item = pushSpy.events[0].e.items[0];
-                    expect(item._id).toBe("3");
+                    expect(item._id).toBe(pouchCollate.toIndexableString(3));
                     expect(item.myId).toBe(3);
                     expect(item.age).toBe(doc.age);
                     expect(item.birthDate).toEqual(doc.birthDate);
@@ -195,7 +196,7 @@ describe("kendo-pouchdb", function () {
 
                     beforeEach(function (done) {
                         pushSpy.reset();
-                        db.get(doc._id).then(function (doc2Update) {
+                        db.get(doc._id).then(function(doc2Update) {
 
                             doc2Update.age = 10;
 
@@ -212,7 +213,7 @@ describe("kendo-pouchdb", function () {
                         expect(pushSpy.events[0].e.type).toEqual("update");
                         expect(pushSpy.events[0].e.items.length).toEqual(1);
                         var item = pushSpy.events[0].e.items[0];
-                        expect(item._id).toBe("3");
+                        expect(item._id).toBe(pouchCollate.toIndexableString(3));
                         expect(item.age).toBe(10);
                     });
 
@@ -239,7 +240,7 @@ describe("kendo-pouchdb", function () {
                         expect(pushSpy.events[0].e.type).toEqual("destroy");
                         expect(pushSpy.events[0].e.items.length).toEqual(1);
                         var item = pushSpy.events[0].e.items[0];
-                        expect(item._id).toBe("3");
+                        expect(item._id).toBe(pouchCollate.toIndexableString(3));
                     });
 
                 });
@@ -262,13 +263,13 @@ describe("kendo-pouchdb", function () {
                 },
                 createDbDoc = function (id, name) {
                     var doc = createDatasourceDoc(id, name);
-                    doc._id = "" + id;
+                    doc._id = pouchCollate.toIndexableString(id);
                     return doc;
                 };
 
             beforeEach(function (done) {
                 var docs = _.map(_.range(10), function (num) {
-                        return createDbDoc(num, "Vasya" +num);
+                        return createDbDoc(num, "Vasya" + num);
                     }),
 
                     dbChangePromise = testHelper.waitForDbChanges(db, 10),
@@ -285,7 +286,7 @@ describe("kendo-pouchdb", function () {
 
                 it("should fetch 10 rows", function () {
                     expect(datasource.total()).toEqual(10);
-                    expect(datasource.at(0)._id).toBe("0");
+                    expect(datasource.at(0)._id).toBe(pouchCollate.toIndexableString(0));
                     expect(datasource.at(0).myId).toBe(0);
                     expect(datasource.at(0).name).toEqual("Vasya0");
                 });
@@ -308,7 +309,7 @@ describe("kendo-pouchdb", function () {
                     });
 
                     it("should add the row to PouchDB", function (done) {
-                        db.get("100").then(function (doc) {
+                        db.get(pouchCollate.toIndexableString(100)).then(function (doc) {
                             expect(doc).toBeTruthy();
                             expect(doc.myId).toBe(100);
                             done();
@@ -322,7 +323,7 @@ describe("kendo-pouchdb", function () {
                     });
 
                     it("should assign _rev to row of datasource", function () {
-                        var newModel = datasource.get(100);
+                        var newModel = datasource.get(pouchCollate.toIndexableString(100));
                         expect(newModel._rev).toBeTruthy();
                     });
 
@@ -334,7 +335,7 @@ describe("kendo-pouchdb", function () {
 
                     beforeEach(function (done) {
 
-                        kendoRow = datasource.get(5);
+                        kendoRow = datasource.get(pouchCollate.toIndexableString(5));
 
                         var dbChangePromise = testHelper.waitForDbChanges(db, 1);
                         pushSpy.reset();
@@ -346,7 +347,7 @@ describe("kendo-pouchdb", function () {
                     });
 
                     it("should update the row in PouchDB", function (done) {
-                        db.get("5").then(function (doc) {
+                        db.get(pouchCollate.toIndexableString(5)).then(function (doc) {
                             expect(doc.name).toEqual(kendoRow.name);
                             done();
                         }).catch(function (err) {
@@ -359,7 +360,7 @@ describe("kendo-pouchdb", function () {
                     });
 
                     it("should update _rev in row of datasource", function (done) {
-                        db.get("5").then(function (doc) {
+                        db.get(pouchCollate.toIndexableString(5)).then(function (doc) {
                             expect(kendoRow._rev).toEqual(doc._rev);
                             done();
                         }).catch(function (err) {
@@ -375,7 +376,7 @@ describe("kendo-pouchdb", function () {
 
                     beforeEach(function (done) {
 
-                        kendoRow = datasource.get(5);
+                        kendoRow = datasource.get(pouchCollate.toIndexableString(5));
 
                         var dbChangePromise = testHelper.waitForDbChanges(db, 1);
                         pushSpy.reset();
@@ -387,7 +388,7 @@ describe("kendo-pouchdb", function () {
                     });
 
                     it("should delete the row in PouchDB", function (done) {
-                        db.get("5").catch(function (err) {
+                        db.get(pouchCollate.toIndexableString(5)).catch(function (err) {
                             if (err.status === 404) {
                                 expect(true).toBe(true); //TODO: How to pass a test in jasmine?
                                 done();
@@ -410,6 +411,207 @@ describe("kendo-pouchdb", function () {
         afterEach(function () {
             pushSpy.dispose();
             changeSpy.dispose();
+        });
+
+    });
+
+    describe("collation", function () {
+
+        var datasource,
+            pushSpy,
+            changeSpy,
+            createDataSource = function (idColumn) {
+                return new kendo.data.DataSource({
+                    type: "pouchdb",
+
+                    schema: {
+                        model: {
+                            fields: {
+                                "myId": { type: "number" },
+                                "name": { type: "string" },
+                                "birthDate": { type: "date" }
+                            }
+                        }
+                    },
+
+                    transport: {
+                        pouchdb: {
+                            db: db,
+                            idFactory: idColumn
+                        }
+                    }
+
+                });
+            },
+            createDatasourceDoc = function (id, name, birthDate) {
+                return {
+                    //here _id should be undefined
+                    myId: id,
+                    name: name,
+                    birthDate: birthDate || new Date(2015, 4, 1)
+                };
+            };
+
+        describe("string as id", function () {
+
+            beforeEach(function () {
+
+                datasource = createDataSource("name");
+
+                pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                changeSpy = testHelper.spyKendoEvent(datasource, "change");
+
+            });
+
+            describe("adding few rows to datasource", function () {
+
+                beforeEach(function (done) {
+                    var rows = [
+                        createDatasourceDoc(1, "C"),
+                        createDatasourceDoc(2, "A"),
+                        createDatasourceDoc(3, "B")
+                    ];
+
+                    var dbChangePromise = testHelper.waitForDbChanges(db, 3);
+                    pushSpy.reset();
+
+                    $.each(rows, function (_, row) {
+                        datasource.add(row);
+                    });
+
+                    var syncPromise = datasource.sync();
+
+                    $.when(dbChangePromise, syncPromise).then(done);
+                });
+
+                it("should add rows to PouchDB sorted by id", function (done) {
+                    db.allDocs({ include_docs: true })
+                        .then(function (result) {
+                            var resultRows = $.map(result.rows, function (row) {
+                                return row.doc;
+                            });
+                            expect(resultRows[0].name).toBe("A");
+                            expect(resultRows[1].name).toBe("B");
+                            expect(resultRows[2].name).toBe("C");
+                            done();
+                        });
+                });
+
+            });
+
+            afterEach(function () {
+                pushSpy.dispose();
+                changeSpy.dispose();
+            });
+
+        });
+
+        describe("number as id", function () {
+
+            beforeEach(function () {
+
+                datasource = createDataSource("myId");
+
+                pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                changeSpy = testHelper.spyKendoEvent(datasource, "change");
+
+            });
+
+            describe("adding few rows to datasource", function () {
+
+                beforeEach(function (done) {
+                    var rows = [
+                        createDatasourceDoc(15, "A"),
+                        createDatasourceDoc(2, "B"),
+                        createDatasourceDoc(120, "C")
+                    ];
+
+                    var dbChangePromise = testHelper.waitForDbChanges(db, 3);
+                    pushSpy.reset();
+
+                    $.each(rows, function (_, row) {
+                        datasource.add(row);
+                    });
+
+                    var syncPromise = datasource.sync();
+
+                    $.when(dbChangePromise, syncPromise).then(done);
+                });
+
+                it("should add rows to PouchDB sorted by id", function (done) {
+                    db.allDocs({ include_docs: true })
+                        .then(function (result) {
+                            var resultRows = $.map(result.rows, function (row) {
+                                return row.doc;
+                            });
+                            expect(resultRows[0].myId).toBe(2);
+                            expect(resultRows[1].myId).toBe(15);
+                            expect(resultRows[2].myId).toBe(120);
+                            done();
+                        });
+                });
+
+            });
+
+            afterEach(function () {
+                pushSpy.dispose();
+                changeSpy.dispose();
+            });
+
+        });
+
+        describe("date as id", function () {
+
+            beforeEach(function () {
+
+                datasource = createDataSource("birthDate");
+
+                pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                changeSpy = testHelper.spyKendoEvent(datasource, "change");
+
+            });
+
+            describe("adding few rows to datasource", function () {
+
+                beforeEach(function (done) {
+                    var rows = [
+                        createDatasourceDoc(1, "A", new Date(2010, 10, 10)),
+                        createDatasourceDoc(2, "B", new Date(2010, 9, 10)),
+                        createDatasourceDoc(3, "C", new Date(2010, 10, 9))
+                    ];
+
+                    var dbChangePromise = testHelper.waitForDbChanges(db, 3);
+                    pushSpy.reset();
+
+                    $.each(rows, function (_, row) {
+                        datasource.add(row);
+                    });
+
+                    var syncPromise = datasource.sync();
+
+                    $.when(dbChangePromise, syncPromise).then(done);
+                });
+
+                it("should add rows to PouchDB sorted by id", function (done) {
+                    db.allDocs({ include_docs: true })
+                        .then(function (result) {
+                            var resultRows = $.map(result.rows, function (row) {
+                                return row.doc;
+                            });
+                            expect(resultRows[0].birthDate).toEqual(new Date(2010, 9, 10));
+                            expect(resultRows[1].birthDate).toEqual(new Date(2010, 10, 9));
+                            expect(resultRows[2].birthDate).toEqual(new Date(2010, 10, 10));
+                            done();
+                        });
+                });
+
+            });
+
+            afterEach(function () {
+                pushSpy.dispose();
+                changeSpy.dispose();
+            });
+
         });
 
     });

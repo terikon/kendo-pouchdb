@@ -39,13 +39,13 @@ Implemented
 - CRUD operations on PouchDB database arrive in DataSource in form of push events.
 - CRUD operations on DataSource are synced with PouchDB when sync method is called.
 - Tests for implemented functionality.
+- Support for PouchDB Collate in _id.
 
 In progress
 - Implement paging.
 - Implement filtering.
 - Implement grouping.
 - Batch option support.
-- Support for PouchDB Collate.
 - Add demos and jsbin/dojo examples.
 - Add the lib to CDN.
 - Write documentation.

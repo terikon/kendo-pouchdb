@@ -33,7 +33,8 @@ module.exports = function(grunt) {
 						'node_modules/underscore/underscore-min.js',
 						'vendor/kendo/kendo.core.js',
 						'vendor/kendo/kendo.data.js',
-						'node_modules/pouchdb/dist/pouchdb.js'
+						'node_modules/pouchdb/dist/pouchdb.js',
+						'node_modules/pouchdb-collate/dist/pouchdb-collate.js'
 					]
 				}
 			}
