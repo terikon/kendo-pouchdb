@@ -38,6 +38,7 @@ Implemented
 - Tests for implemented functionality.
 
 In progress
+- Implement paging.
 - Implement filtering.
 - Implement grouping.
 - Batch option support.
@@ -45,6 +46,8 @@ In progress
 - Add demos and jsbin/dojo examples.
 - Add the lib to CDN.
 - Write documentation.
+- Add support for bower.
+- Add to npmjs.
 
 # Install
 
