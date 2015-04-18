@@ -20,6 +20,14 @@ describe("kendo-pouchdb", function () {
             });
     });
 
+    describe("original methods of kendo.data.DataSource", function () {
+
+        it("create() should be preserved", function () {
+            expect(typeof kendo.data.DataSource.create).toBe("function");
+        });
+
+    });
+
     describe("validation of creation parameters", function () {
 
         var datasource;

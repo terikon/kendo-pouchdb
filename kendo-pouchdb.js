@@ -1,9 +1,13 @@
 (function (f, define) {
-    define(["PouchDB", "./kendo.data"], f);
-})(function (PouchDB) {
+    define(["PouchDB", "pouchCollate"], f);
+})(function (PouchDB, pouchCollate) {
 
     if (!PouchDB) {
         throw new Error('Please include "pouchdb.js" before kendo-pouchdb');
+    }
+
+    if (!pouchCollate) {
+        throw new Error('Please include "pouchdb-collate.js" before kendo-pouchdb');
     }
 
     (function ($) {
@@ -215,8 +219,11 @@
 
         });
 
+        //Preserve kendo.data.DataSource's method
+        $.extend(kendo.data.DataSource, original.DataSource);
+
     })(window.kendo.jQuery);
 
     return window.kendo;
 
-}, typeof define == 'function' && define.amd ? define : function (_, f) { f(window.PouchDB); });
+}, typeof define == 'function' && define.amd ? define : function (_, f) { f(window.PouchDB, window.pouchCollate); });

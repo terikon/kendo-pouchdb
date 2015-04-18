@@ -13,14 +13,22 @@ module.exports = function(grunt) {
 				sourceMap: true,
 				banner: '/* <%= grunt.task.current.target %> v<%= pkg.version %> <%= grunt.template.today("dd-mm-yyyy") %> (C) 2015 Terikon Software */\n'
 			},
-			kendoPouchDB: {
+			'kendo-pouchdb': {
 				src: 'kendo-pouchdb.js',
 				dest: 'dist/kendo-pouchdb.min.js'
+			},
+			'kendo-pouchdb.amd': {
+				options: {
+					sourceMap: false,
+				},
+				src: 'kendo-pouchdb.amd.js',
+				dest: 'dist/kendo-pouchdb.amd.min.js'
 			}
 		},
 		
 		jshint: {
-			all: ['Gruntfile.js', 'kendo-pouchdb.js', 'tests/spec/*.js', 'tests/*.js']
+			all: ['Gruntfile.js', 'kendo-pouchdb.js', 'kendo-pouchdb.amd.js',
+				'tests/spec/*.js', 'tests/*.js']
 		},
 		
 		jasmine: {
