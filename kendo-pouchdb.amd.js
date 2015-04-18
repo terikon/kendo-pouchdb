@@ -10,5 +10,5 @@
 //  }
 define(['kendo', 'kendo-pouchdb'], function (kendo) {
 	'use strict';
-    return kendo;
+	return kendo;
 });

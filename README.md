@@ -60,10 +60,12 @@ TODO
 
 Include kendo-pouchdb.js after Kendo and PouchDB libraries.
 
+It will create kendo.data.PouchableDataSource that acts like casual kendo.data.DataSource, but can also be of "pouchdb" type.
+
 Then create pouchdb datasource:
 
 ```js
-var dataSource = new kendo.data.DataSource({
+var dataSource = new kendo.data.PouchableDataSource({
     type: "pouchdb",
     transport: {
         pouchdb: {

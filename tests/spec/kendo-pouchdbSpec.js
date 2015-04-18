@@ -23,7 +23,7 @@ describe("kendo-pouchdb", function () {
     describe("original methods of kendo.data.DataSource", function () {
 
         it("create() should be preserved", function () {
-            expect(typeof kendo.data.DataSource.create).toBe("function");
+            expect(typeof kendo.data.PouchableDataSource.create).toBe("function");
         });
 
     });
@@ -35,7 +35,7 @@ describe("kendo-pouchdb", function () {
         describe("no db provided", function () {
 
             var createDatasource = function () {
-                datasource = new kendo.data.DataSource({
+                datasource = new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
                     transport: {
@@ -56,7 +56,7 @@ describe("kendo-pouchdb", function () {
         describe("no idFactory provided", function () {
 
             var createDatasource = function () {
-                datasource = new kendo.data.DataSource({
+                datasource = new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
                     transport: {
@@ -77,7 +77,7 @@ describe("kendo-pouchdb", function () {
         describe("incorrect model.id provided", function () {
 
             var createDatasource = function () {
-                datasource = new kendo.data.DataSource({
+                datasource = new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
                     schema: {
@@ -107,7 +107,7 @@ describe("kendo-pouchdb", function () {
         describe("db and idFactory provided and model.id not provided", function () {
 
             var createDatasource = function () {
-                datasource = new kendo.data.DataSource({
+                datasource = new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
                     transport: {
@@ -136,7 +136,7 @@ describe("kendo-pouchdb", function () {
 
         beforeEach(function () {
 
-            datasource = new kendo.data.DataSource({
+            datasource = new kendo.data.PouchableDataSource({
                 type: "pouchdb",
 
                 schema: {
@@ -429,7 +429,7 @@ describe("kendo-pouchdb", function () {
             pushSpy,
             changeSpy,
             createDataSource = function (idColumn) {
-                return new kendo.data.DataSource({
+                return new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
                     schema: {
