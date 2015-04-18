@@ -1,6 +1,9 @@
 # kendo-pouchdb
 
+[![Build Status](https://travis-ci.org/terikon/kendo-pouchdb.svg?branch=master)](https://travis-ci.org/terikon/kendo-pouchdb)
+
 ![Alt Work in Progress](<http://terikon.github.io/kendo-pouchdb/images/work-in-progress.png>)
+
 Connecting [DataSource](<http://docs.telerik.com/kendo-ui/framework/datasource/overview>) 
 object of [Kendo UI](<http://www.telerik.com/kendo-ui>) with
 [PouchDB](<http://pouchdb.com/>) database.
