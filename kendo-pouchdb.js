@@ -93,6 +93,7 @@
                     .catch(function (err) {
                         if (err.status === 409) {
                             //TODO: conflict resolution
+                            console.log(kendo.format("kendo-pouchdb: conflict occured for {0}: {1}", type, err));
                         }
                         options.error(err);
                     });
@@ -150,21 +151,31 @@
 
             init: function (options) {
                 if (options && options.type && options.type === "pouchdb") {
-                    var that = this;
+                    var that = this, Model;
 
                     //This will indicate that dataset's type is pouchdb.
                     this._ispouchdb = true;
 
-                    options = $.extend(true, {
-                        schema: {
-                            model: {
-                                id: "_id"
-                            }
+                    if (options.schema && options.schema.model && options.schema.model.fn && options.schema.model.fn instanceof kendo.data.Model) {
+                        Model = options.schema.model;
+                        if (Model.idField !== "_id") {
+                            throw new Error('The Model\'s id option should be "_id"');
                         }
-                    }, options);
+                    } else {
 
-                    if (options.schema.model.id !== "_id") {
-                        throw new Error('The model.id option should not be provided - use transport.idFactory instead');
+                        //Model was given as configuration, just set id to _id.
+                        options = $.extend(true, {
+                            schema: {
+                                model: {
+                                    id: "_id"
+                                }
+                            }
+                        }, options);
+
+                        if (options.schema.model.id !== "_id") {
+                            throw new Error('The model.id option should not be provided or should be "_id"');
+                        }
+
                     }
 
                     //defaulting serverNNN options to true.
@@ -205,21 +216,21 @@
 
                 }
                 return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
-            }
+            },
 
-            //TODO: is it necessary?
             //gets model id and calls original DataSource's get with id transformed by pouchCollate.toIndexableString.
-            //get: function (id) {
-            //    if (this._ispouchdb) {
-            //        return kendo.data.DataSource.fn.get.call(this, pouchCollate.toIndexableString(id));
-            //    }
-            //    return kendo.data.DataSource.fn.get.apply(this, arguments);
-            //}
+            getByModelId: function (id) {
+                if (this._ispouchdb) {
+                    return kendo.data.DataSource.fn.get.call(this, pouchCollate.toIndexableString(id));
+                }
+                return kendo.data.DataSource.fn.get.apply(this, arguments);
+            }
 
         });
 
-        //Preserve kendo.data.DataSource's methods (like create).
-        $.extend(PouchableDataSource, kendo.data.DataSource);
+        //Preserve kendo.data.DataSource's class methods (like create).
+        PouchableDataSource.create = kendo.data.DataSource.create;
+        //$.extend(PouchableDataSource, kendo.data.DataSource); //This does not work - kills init
 
         kendo.data.PouchableDataSource = PouchableDataSource;
 
