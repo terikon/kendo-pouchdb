@@ -140,13 +140,12 @@
             }
         });
 
-        var original = {
-            DataSource: kendo.data.DataSource
-        };
-
-        //Replace DataSource
+        //Replacing kendo.data.DataSource object with alternative implementation does not work. kendo.data.DataSource.create method uses
+        //'new DataSource' from closure, so it always creates original DataSource instance, which fails
+        //'datasource instanceof kendo.data.DataSource' test.
+        //
         //Remember to check _ispouchdb property on each overriden function
-        kendo.data.DataSource = kendo.data.DataSource.extend({
+        var PouchableDataSource = kendo.data.DataSource.extend({
             //_ispouchdb property will be set if pouchdb type
 
             init: function (options) {
@@ -177,7 +176,7 @@
 
                 }
 
-                original.DataSource.fn.init.apply(this, arguments);
+                kendo.data.DataSource.fn.init.apply(this, arguments);
             },
 
             //handles create and update
@@ -194,33 +193,35 @@
                         //check change was caused by datasource itself, in which case push should not propagate
                         if (dbItem._rev !== datasourceItem._rev) {
                             //change arrived from PouchDB
-                            return original.DataSource.fn.pushUpdate.apply(this, arguments);
+                            return kendo.data.DataSource.fn.pushUpdate.apply(this, arguments);
                         } else {
                             //change causes by datasource itself and synced with PouchDB
                             return undefined;
                         }
                         
                     } else {
-                        return original.DataSource.fn.pushCreate.apply(this, arguments);
+                        return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
                     }
 
                 }
-                return original.DataSource.fn.pushCreate.apply(this, arguments);
+                return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
             }
 
             //TODO: is it necessary?
             //gets model id and calls original DataSource's get with id transformed by pouchCollate.toIndexableString.
             //get: function (id) {
             //    if (this._ispouchdb) {
-            //        return original.DataSource.fn.get.call(this, pouchCollate.toIndexableString(id));
+            //        return kendo.data.DataSource.fn.get.call(this, pouchCollate.toIndexableString(id));
             //    }
-            //    return original.DataSource.fn.get.apply(this, arguments);
+            //    return kendo.data.DataSource.fn.get.apply(this, arguments);
             //}
 
         });
 
-        //Preserve kendo.data.DataSource's method
-        $.extend(kendo.data.DataSource, original.DataSource);
+        //Preserve kendo.data.DataSource's methods (like create).
+        $.extend(PouchableDataSource, kendo.data.DataSource);
+
+        kendo.data.PouchableDataSource = PouchableDataSource;
 
     })(window.kendo.jQuery);
 
