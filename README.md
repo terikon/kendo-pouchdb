@@ -126,7 +126,8 @@ var dataSource = new kendo.data.PouchableDataSource({
             db: db,
             idFactory: "passport",
             fieldViews: {
-              "name: "sortIndex/byName"
+              "name: "sortIndex/byName",
+              "age,name" : "sortIndex/byAgeName"
             }
         }
     });
