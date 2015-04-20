@@ -49,3 +49,9 @@ testHelper.waitForDbChanges = function (db, numberOfChanges) {
 
     return deferred.promise();
 };
+
+testHelper.addArrayToDataSource = function (dataSource, rows) {
+    $.each(rows, function (_, row) {
+        dataSource.add(row);
+    });
+};

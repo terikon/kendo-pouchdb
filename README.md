@@ -95,6 +95,49 @@ schema: {
 _id will be created by applying [pouchCollate.toIndexableString](<https://github.com/pouchdb/collate/#toindexablestringobj>)
 to data provided by idFactory, so data will be stored sorted by model id, either it string or numeric type.
 
+## id field
+
+id field can be of string and numeric type.
+Do not use date field as id field.
+
+## Model class
+
+If model class is provided as schema model, it **should** have _id field as model's id:
+
+```js
+var Model = kendo.data.Model.define({
+    id: "_id", //This should be provided
+
+    fields: {
+        name: { type: "string" }
+    }
+});
+```
+
+## Sorting
+
+For sort to work, appropriate view should be provided for each field that will be used for sorting:
+
+```js
+var dataSource = new kendo.data.PouchableDataSource({
+    type: "pouchdb",
+    transport: {
+        pouchdb: {
+            db: db,
+            idFactory: "passport",
+            fieldViews: {
+              "name: "sortIndex/byName"
+            }
+        }
+    });
+    
+//Now you can sort by name
+```
+
+Exception will be thrown if trying to sort by field that has no index.
+
+Of course, the _id field can be sorted by without providing view for it. 
+
 TODO
 
 # API

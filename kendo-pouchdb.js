@@ -1,3 +1,5 @@
+//Kendo UI DataSource adapter for PouchDB.
+
 (function (f, define) {
     define(["PouchDB", "pouchCollate"], f);
 })(function (PouchDB, pouchCollate) {
