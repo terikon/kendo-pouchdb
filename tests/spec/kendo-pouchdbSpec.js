@@ -568,60 +568,6 @@ describe("kendo-pouchdb", function () {
 
         });
 
-        describe("date as id", function () {
-
-            beforeEach(function () {
-
-                datasource = createDataSource("birthDate");
-
-                pushSpy = testHelper.spyKendoEvent(datasource, "push");
-                changeSpy = testHelper.spyKendoEvent(datasource, "change");
-
-            });
-
-            describe("adding few rows to datasource", function () {
-
-                beforeEach(function (done) {
-                    var rows = [
-                        createDatasourceDoc(1, "A", new Date(2010, 10, 10)),
-                        createDatasourceDoc(2, "B", new Date(2010, 9, 10)),
-                        createDatasourceDoc(3, "C", new Date(2010, 10, 9))
-                    ];
-
-                    var dbChangePromise = testHelper.waitForDbChanges(db, 3);
-                    pushSpy.reset();
-
-                    $.each(rows, function (_, row) {
-                        datasource.add(row);
-                    });
-
-                    var syncPromise = datasource.sync();
-
-                    $.when(dbChangePromise, syncPromise).then(done);
-                });
-
-                it("should add rows to PouchDB sorted by id", function (done) {
-                    db.allDocs({ include_docs: true })
-                        .then(function (result) {
-                            var resultRows = $.map(result.rows, function (row) {
-                                return row.doc;
-                            });
-                            expect(resultRows[0].birthDate).toEqual(new Date(2010, 9, 10));
-                            expect(resultRows[1].birthDate).toEqual(new Date(2010, 10, 9));
-                            expect(resultRows[2].birthDate).toEqual(new Date(2010, 10, 10));
-                            done();
-                        });
-                });
-
-            });
-
-            afterEach(function () {
-                pushSpy.dispose();
-                changeSpy.dispose();
-            });
-
-        });
-
     });
 
 });
