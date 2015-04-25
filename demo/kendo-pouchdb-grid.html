@@ -37,9 +37,7 @@
 							transport: {
 								pouchdb: {
 									db: db,
-									idFactory: function (data) {
-										return data.ProductID;
-									}
+									idField: "ProductID"
 								}
 							},
 							//batch: true, //TODO
