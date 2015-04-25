@@ -1,0 +1,38 @@
+{
+  "name": "kendo-pouchdb",
+  "main": "kendo-pouchdb.js",
+  "version": "0.0.1",
+  "description": "Kendo UI adapter for PouchDB",
+  
+  "homepage": "https://github.com/terikon/kendo-pouchdb",
+  "authors": [
+	{ "name": "Terikon Software", "email": "npm@terikon.com", "homepage": "http://il.linkedin.com/in/romanviskin" }
+  ],
+  
+  "moduleType": [
+    "amd",
+    "globals"
+  ],
+  
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/terikon/kendo-pouchdb.git"
+  },
+  
+  "keywords": [
+    "Kendo",
+    "Kendo UI",
+    "PouchDB",
+	"DataSource"
+  ],
+
+  "license": "MIT",
+  
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "tests"
+  ]
+  
+}
