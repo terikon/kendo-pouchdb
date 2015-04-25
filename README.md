@@ -46,9 +46,9 @@ Implemented
 - Implement sorting.
 - Add support for bower.
 - Add to npmjs.
+- Implement paging.
 
 In progress
-- Implement paging.
 - Implement filtering.
 - Implement grouping.
 - Batch option support.

@@ -517,6 +517,16 @@ describe("kendo-pouchdb", function () {
                     name: name,
                     birthDate: birthDate || new Date(2015, 4, 1)
                 };
+            },
+            addIndex = function (indexName, viewName, field) {
+                var ddoc = {
+                    _id: '_design/' + indexName,
+                    views: {}
+                };
+                ddoc.views[viewName] = {
+                    map: "function (doc) { emit(doc['" + field + "']); }"
+                };
+                return db.put(ddoc);
             };
 
         describe("collation", function () {
@@ -630,7 +640,7 @@ describe("kendo-pouchdb", function () {
         describe("sorting", function () {
 
             var addRowsAndSort = function (rows, field, dir) {
-                    var dbChangePromise = testHelper.waitForDbChanges(db, 3);
+                    var dbChangePromise = testHelper.waitForDbChanges(db, rows.length);
                     pushSpy.reset();
 
                     testHelper.addArrayToDataSource(datasource, rows);
@@ -643,16 +653,6 @@ describe("kendo-pouchdb", function () {
                         });
 
                     return $.when(dbChangePromise, syncRefetchPromise);
-                },
-                addIndex = function (indexName, viewName, field) {
-                    var ddoc = {
-                        _id: '_design/' + indexName,
-                        views: {}
-                    };
-                    ddoc.views[viewName] = {
-                        map: "function (doc) { emit(doc['" + field + "']); }"
-                    };
-                    return db.put(ddoc);
                 };
 
             describe("if sorting by field without index", function () {
@@ -803,6 +803,100 @@ describe("kendo-pouchdb", function () {
                 afterEach(function () {
                     pushSpy.dispose();
                     changeSpy.dispose();
+                });
+
+            });
+
+        });
+
+        describe("paging", function () {
+
+            var rows;
+
+            beforeEach(function (done) {
+                datasource = createDataSource("passport");
+                rows = [
+                    createDatasourceDoc(1, "A"),
+                    createDatasourceDoc(2, "B"),
+                    createDatasourceDoc(3, "C"),
+                    createDatasourceDoc(4, "D"),
+                    createDatasourceDoc(5, "E")
+                ];
+                var dbChangePromise = testHelper.waitForDbChanges(db, rows.length);
+                testHelper.addArrayToDataSource(datasource, rows);
+
+                var syncPromise = datasource.sync();
+
+                $.when(dbChangePromise, syncPromise).then(done);
+            });
+
+            describe("page in the middle", function () {
+
+                beforeEach(function (done) {
+                    datasource.pageSize(2);
+                    datasource.page(2);
+                    datasource.fetch().then(done);
+                });
+
+                it("should fetch pageSize items", function () {
+                    var view = datasource.view();
+                    expect(view.length).toBe(2);
+                    expect(view[0].passport).toBe(3);
+                    expect(view[1].passport).toBe(4);
+                });
+
+                it("total() still should return correct number", function () {
+                    expect(datasource.total()).toBe(5);
+                });
+
+                describe("where there are design documents", function () {
+
+                    beforeEach(function (done) {
+                        addIndex("sort", "byName", "name")
+                            .then(function () {
+                                return datasource.fetch();
+                            })
+                            .then(done);
+                    });
+
+                    it("total() still should return correct number", function () {
+                        expect(datasource.total()).toBe(5);
+                    });
+
+                });
+
+            });
+
+            describe("page in the end", function () {
+
+                beforeEach(function (done) {
+                    datasource.pageSize(2);
+                    datasource.page(3);
+                    datasource.fetch().then(done);
+                });
+
+                it("should fetch pageSize items", function () {
+                    var view = datasource.view();
+                    expect(view.length).toBe(1);
+                    expect(view[0].passport).toBe(5);
+                });
+
+            });
+
+            describe("in desc order", function () {
+
+                beforeEach(function (done) {
+                    datasource.pageSize(2);
+                    datasource.page(2);
+                    datasource.sort({ field: "passport", dir: "desc" });
+                    datasource.fetch().then(done);
+                });
+
+                it("should fetch pageSize items in opposite order", function () {
+                    var view = datasource.view();
+                    expect(view.length).toBe(2);
+                    expect(view[0].passport).toBe(3);
+                    expect(view[1].passport).toBe(2);
                 });
 
             });
