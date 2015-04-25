@@ -44,6 +44,8 @@ Implemented
 - Tests for implemented functionality.
 - Support for PouchDB Collate in _id.
 - Implement sorting.
+- Add support for bower.
+- Add to npmjs.
 
 In progress
 - Implement paging.
@@ -53,12 +55,37 @@ In progress
 - Add demos and jsbin/dojo examples.
 - Add the lib to CDN.
 - Write documentation.
-- Add support for bower.
-- Add to npmjs.
 
 # Install
 
-TODO
+## with npm
+
+```
+npm install kendo-pouchdb
+```
+
+## with bower
+
+```
+bower install kendo-pouchdb
+```
+
+## include on page
+
+Download **kendo-pouchdb.js**
+[minified](https://raw.githubusercontent.com/terikon/kendo-pouchdb/master/dist/kendo-pouchdb.min.js) or
+[debug](https://raw.githubusercontent.com/terikon/kendo-pouchdb/master/kendo-pouchdb.js).
+
+Include jQuery, Kendo UI, [pouchdb.js](<https://github.com/pouchdb/pouchdb>)
+and [pouchdb-collate.js](<https://github.com/pouchdb/collate>):
+
+```html
+<script src="http://cdn.kendostatic.com/2015.1.408/js/jquery.min.js"></script>
+<script src="http://cdn.kendostatic.com/2015.1.408/js/kendo.all.min.js"></script>
+<script src="http://cdn.jsdelivr.net/pouchdb/3.4.0/pouchdb.min.js"></script>
+<script src="pouchdb-collate.js"></script>
+<script src="kendo-pouchdb.min.js"></script>
+```
 
 # Use
 
