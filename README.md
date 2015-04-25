@@ -26,13 +26,18 @@ into DataSource in real time with CouchDB database.
 
 # Demo
 
-See online demo of kendo-pouchdb [here](<http://terikon.github.io/kendo-pouchdb/demo/kendo-pouchdb-grid.html>).
+See [online demo of kendo-pouchdb](<http://terikon.github.io/kendo-pouchdb/demo/kendo-pouchdb-grid.html>).
 
 Data is being put into *demodb* database, and will be presented with kendo grid. You can create/update/delete records,
 and they will persist in the database. Just reload the page to see your data again.
 
 Using [PouchDB Inspector](<https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa>)
 is recommended with demo. If you change a document in database with this tool, the grid will present your change immediately. 
+
+In addition,
+
+- [Sorting demo](<http://terikon.github.io/kendo-pouchdb/demo/kendo-pouchdb-sort.html>)
+- [Paging demo](<http://terikon.github.io/kendo-pouchdb/demo/kendo-pouchdb-paging.html>)
 
 Demos reside in [demo](https://github.com/terikon/kendo-pouchdb/tree/master/demo) folder.
 
