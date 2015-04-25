@@ -28,6 +28,13 @@
 
   "license": "MIT",
   
+  "dependencies": {
+	"jquery": "*",
+	"kendo-ui-core": "^2015.1.422",
+	"pouchdb": "^3.4.0",
+	"pouchdb-collate": "^1.2.0"
+  },
+  
   "ignore": [
     "**/.*",
     "node_modules",
