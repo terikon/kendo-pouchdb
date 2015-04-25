@@ -40,7 +40,7 @@ describe("kendo-pouchdb", function () {
 
                     transport: {
                         pouchdb: {
-                            idFactory: "myId"
+                            idField: "myId"
                         }
                     }
 
@@ -53,7 +53,7 @@ describe("kendo-pouchdb", function () {
 
         });
 
-        describe("no idFactory provided", function () {
+        describe("no idField provided", function () {
 
             var createDatasource = function () {
                 datasource = new kendo.data.PouchableDataSource({
@@ -69,7 +69,7 @@ describe("kendo-pouchdb", function () {
             };
 
             it("should throw error", function () {
-                expect(createDatasource).toThrowError(/The "idFactory" option/);
+                expect(createDatasource).toThrowError(/The "idField" option/);
             });
 
         });
@@ -91,9 +91,7 @@ describe("kendo-pouchdb", function () {
                         transport: {
                             pouchdb: {
                                 db: db,
-                                idFactory: function (data) {
-                                    return data.myId;
-                                }
+                                idField: "myId"
                             }
                         }
 
@@ -108,7 +106,7 @@ describe("kendo-pouchdb", function () {
 
         });
 
-        describe("db and idFactory provided and model.id not provided", function () {
+        describe("db and idField provided and model.id not provided", function () {
 
             var createDatasource = function () {
                 datasource = new kendo.data.PouchableDataSource({
@@ -117,9 +115,7 @@ describe("kendo-pouchdb", function () {
                     transport: {
                         pouchdb: {
                             db: db,
-                            idFactory: function (data) {
-                                return data.myId;
-                            }
+                            idField: "myId"
                         }
                     }
 
@@ -145,9 +141,7 @@ describe("kendo-pouchdb", function () {
                     transport: {
                         pouchdb: {
                             db: db,
-                            idFactory: function (data) {
-                                return data.myId;
-                            }
+                            idField: "myId"
                         }
                     }
 
@@ -218,7 +212,7 @@ describe("kendo-pouchdb", function () {
                 transport: {
                     pouchdb: {
                         db: db,
-                        idFactory: "myId"
+                        idField: "myId"
                     }
                 }
 
@@ -509,7 +503,7 @@ describe("kendo-pouchdb", function () {
                     transport: {
                         pouchdb: {
                             db: db,
-                            idFactory: idColumn,
+                            idField: idColumn,
                             fieldViews: fieldViews
                         }
                     }
@@ -643,9 +637,12 @@ describe("kendo-pouchdb", function () {
 
                     datasource.sort({ field: field, dir: dir });
 
-                    var syncPromise = datasource.sync();
+                    var syncRefetchPromise = datasource.sync()
+                        .then(function () {
+                            return datasource.fetch();
+                        });
 
-                    return $.when(dbChangePromise, syncPromise);
+                    return $.when(dbChangePromise, syncRefetchPromise);
                 },
                 addIndex = function (indexName, viewName, field) {
                     var ddoc = {
@@ -667,7 +664,27 @@ describe("kendo-pouchdb", function () {
                 });
 
                 it("should fail", function () {
-                    expect(sort).toThrowError(); //TODO: specify what error
+                    expect(sort).toThrowError(/No PouchDB view/);
+                });
+
+            });
+
+            describe("if sorting by more than one field", function () {
+
+                var sort = function () {
+                    datasource.sort(
+                    [
+                        { field: "name", dir: "asc" },
+                        { field: "passport", dir: "asc" }
+                    ]);
+                };
+
+                beforeEach(function () {
+                    datasource = createDataSource("passport");
+                });
+
+                it("should fail", function () {
+                    expect(sort).toThrowError(/multiple fields/);
                 });
 
             });
@@ -713,7 +730,7 @@ describe("kendo-pouchdb", function () {
                 describe("sorting descending", function () {
 
                     beforeEach(function (done) {
-                        addRowsAndSort("desc").then(done);
+                        addRowsAndSort(rows, "name", "desc").then(done);
                     });
 
                     it("should get rows sorted desc", function () {

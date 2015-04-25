@@ -43,6 +43,7 @@ Implemented
 - CRUD operations on DataSource are synced with PouchDB when sync method is called.
 - Tests for implemented functionality.
 - Support for PouchDB Collate in _id.
+- Implement sorting.
 
 In progress
 - Implement paging.
@@ -73,9 +74,7 @@ var dataSource = new kendo.data.PouchableDataSource({
     transport: {
         pouchdb: {
             db: db,
-            idFactory: function (data) { //This can be just string
-                return data.ProductID;
-            }
+            idField: "ProductID"
         }
     });
 ```
@@ -93,7 +92,7 @@ schema: {
 ```
 
 _id will be created by applying [pouchCollate.toIndexableString](<https://github.com/pouchdb/collate/#toindexablestringobj>)
-to data provided by idFactory, so data will be stored sorted by model id, either it string or numeric type.
+to data provided by idField, so data will be stored sorted by model id, either it string or numeric type.
 
 ## id field
 
@@ -121,13 +120,14 @@ For sort to work, appropriate view should be provided for each field that will b
 ```js
 var dataSource = new kendo.data.PouchableDataSource({
     type: "pouchdb",
+    sort: { field: "name", dir: "asc"},
     transport: {
         pouchdb: {
             db: db,
-            idFactory: "passport",
+            idField: "passport",
             fieldViews: {
               "name: "sortIndex/byName",
-              "age,name" : "sortIndex/byAgeName"
+              "age" : "sortIndex/byAge"
             }
         }
     });
@@ -135,7 +135,8 @@ var dataSource = new kendo.data.PouchableDataSource({
 //Now you can sort by name
 ```
 
-Exception will be thrown if trying to sort by field that has no index.
+Exception will be thrown if trying to sort by field that has no index. Exception will be thrown if trying to sort by
+multiple columns, this functionality is not supported.
 
 Of course, the _id field can be sorted by without providing view for it. 
 

@@ -19,7 +19,8 @@
             init: function (options) {
                 var pouchdb = options && options.pouchdb ? options.pouchdb : {},
                     db = pouchdb.db,
-                    idFactory = pouchdb.idFactory;
+                    idField = pouchdb.idField,
+                    fieldViews = pouchdb.fieldViews || {};
 
                 if (!db) {
                     throw new Error('The "db" option must be set.');
@@ -31,13 +32,13 @@
 
                 this.db = db;
 
-                if (!idFactory) {
-                    throw new Error('The "idFactory" option must be set.');
+                if (!idField) {
+                    throw new Error('The "idField" option must be set.');
                 }
 
-                this.idFactory = (typeof idFactory === "function") ? idFactory : function (data) {
-                    return data[idFactory];
-                };
+                this.idField = idField;
+
+                this.fieldViews = fieldViews;
 
                 kendo.data.RemoteTransport.fn.init.call(this, options);
             },
@@ -72,8 +73,13 @@
             },
 
             read: function (options) {
+                //options.data contain filter,group,page,sort info
 
-                this.db.allDocs({ include_docs: true })
+                var fieldViewAndDir = this._getFieldViewAndDirForSort(options.data.sort),
+                    queryMethod = fieldViewAndDir.fieldView ? this.db.query.bind(this.db, fieldViewAndDir.fieldView) : this.db.allDocs;
+
+
+                queryMethod.call(this.db, { include_docs: true, descending: fieldViewAndDir.descending })
                     .then(function (response) {
                         var docs = $.map(response.rows, function (row) {
                             return row.doc;
@@ -106,7 +112,7 @@
                 var data = options.data;
 
                 //use pouchdb-collate, as described [here](http://pouchdb.com/2014/06/17/12-pro-tips-for-better-code-with-pouchdb.html).
-                data._id = pouchCollate.toIndexableString(this.idFactory(data));
+                data._id = pouchCollate.toIndexableString(data[this.idField]);
 
                 this._crud("create", data, options, function (d) {
                     return this.db.put(d);
@@ -125,7 +131,6 @@
             },
 
             destroy: function (options) {
-                //    this._crud(options, "destroy");
 
                 var data = options.data;
 
@@ -133,6 +138,33 @@
                     return this.db.remove(d);
                 });
 
+            },
+
+            //Returns {fieldView:string, descending:bool}.
+            //For default index, returns {descending:bool}.
+            _getFieldViewAndDirForSort: function (sorts) {
+                var field, descending, fieldView;
+
+                if (!sorts || sorts.length === 0) {
+                    return { descending: false };
+                }
+                if (sorts.length > 1) {
+                    throw new Error("Sorting by multiple fields is not supported by kendo-pouchdb");
+                }
+                field = sorts[0].field;
+                descending = sorts[0].dir && sorts[0].dir === "desc";
+
+                if (field === "_id" || field === this.idField) {
+                    return { descending: descending };
+                }
+
+                fieldView = this.fieldViews[field];
+
+                if (!fieldView) {
+                    throw new Error("No PouchDB view provided for sorting by '" + field + "'");
+                }
+
+                return { fieldView: fieldView, descending: descending };
             }
 
         });
@@ -150,10 +182,11 @@
         //Remember to check _ispouchdb property on each overriden function
         var PouchableDataSource = kendo.data.DataSource.extend({
             //_ispouchdb property will be set if pouchdb type
-
             init: function (options) {
                 if (options && options.type && options.type === "pouchdb") {
                     var that = this, Model;
+
+                    options = $.extend(true, {}, options); //prevents aliasing
 
                     //This will indicate that dataset's type is pouchdb.
                     this._ispouchdb = true;
@@ -187,6 +220,16 @@
                     options.serverGrouping = options.serverGrouping === undefined ? true : options.serverGrouping;
                     options.serverAggregates = options.serverAggregates === undefined ? true : options.serverAggregates;
 
+                    if (options.data) {
+                        throw new Error('For DataSource of type pouchdb data option should not be provided');
+                    }
+
+                    //This is (a little hack) a way to pass options to transport.
+                    options.data = {
+                        //Here parameters to Transport can be put
+                    
+                    };
+
                 }
 
                 kendo.data.DataSource.fn.init.apply(this, arguments);
@@ -199,7 +242,7 @@
                     //in such case, items will contain a single item
 
                     dbItem = items[0];
-                    datasourceItem = this.get(dbItem._id);
+                    datasourceItem = this.get(dbItem._id); //TODO: take filter and paging into account
 
                     // check already fetched
                     if (datasourceItem !== undefined) {
@@ -211,7 +254,7 @@
                             //change causes by datasource itself and synced with PouchDB
                             return undefined;
                         }
-                        
+
                     } else {
                         return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
                     }
