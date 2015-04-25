@@ -75,16 +75,35 @@
             read: function (options) {
                 //options.data contain filter,group,page,sort info
 
-                var fieldViewAndDir = this._getFieldViewAndDirForSort(options.data.sort),
-                    queryMethod = fieldViewAndDir.fieldView ? this.db.query.bind(this.db, fieldViewAndDir.fieldView) : this.db.allDocs;
-
-
-                queryMethod.call(this.db, { include_docs: true, descending: fieldViewAndDir.descending })
-                    .then(function (response) {
-                        var docs = $.map(response.rows, function (row) {
-                            return row.doc;
+                var that = this,
+                    fieldViewAndDir = this._getFieldViewAndDirForSort(options.data.sort),
+                    queryMethod = fieldViewAndDir.fieldView ? that.db.query.bind(that.db, fieldViewAndDir.fieldView) : that.db.allDocs,
+                    skip,
+                    limit = options.data.pageSize,
+                    page = options.data.page,
+                    //returns total number of design docs in database
+                    countDesignDocs = function () {
+                        return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
+                            return result.rows.length;
                         });
-                        options.success(docs);
+                    };
+
+                if (limit !== undefined) {
+                    if (page === undefined) {
+                        page = 1;
+                    }
+                    skip = limit * (page - 1);
+                } else {
+                    skip = undefined;
+                }
+
+                countDesignDocs().then(function (totalDesignRows) {
+                        return queryMethod.call(that.db, { include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit })
+                            .then(function (response) {
+                                response.total_rows -= totalDesignRows; //subtracts design documents from total_rows
+                                options.success(response);
+                            });
+
                     })
                     .catch(options.error);
 
@@ -169,7 +188,29 @@
 
         });
 
+        var pouchdbSchema = {
+            type: "json",
+            data: function (data) {
+                if (data.rows) {
+                    var docs = $.map(data.rows, function (row) {
+                        if (row.doc._id.indexOf("_design/") !== 0) { //ignore design documents
+                            return row.doc;
+                        }
+                        return undefined;
+                    });
+                    return docs;
+                }
+                return data;
+            },
+            total: function (data) {
+                return data.total_rows;
+            }
+        };
+
         $.extend(true, kendo.data, {
+            schemas: {
+                pouchdb: pouchdbSchema
+            },
             transports: {
                 pouchdb: pouchdbTransport
             }
@@ -227,7 +268,7 @@
                     //This is (a little hack) a way to pass options to transport.
                     options.data = {
                         //Here parameters to Transport can be put
-                    
+
                     };
 
                 }

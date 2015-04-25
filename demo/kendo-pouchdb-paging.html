@@ -7,7 +7,7 @@
 				font-family: Arial, Helvetica, sans-serif;
 			}
 		</style>
-		<title>kendo-pouchdb demo</title>
+		<title>kendo-pouchdb paging demo</title>
 		<link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.common.min.css" />
 		<link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.common-material.min.css" />
 		<link rel="stylesheet" href="http://cdn.kendostatic.com/2015.1.408/styles/kendo.material.min.css" />
@@ -40,6 +40,7 @@
 								}
 							},
 							//batch: true, //TODO
+							pageSize: 20,
 							schema: {
 								model: {
 									//Do not specify id here, id:"_id" will be used.
@@ -63,6 +64,7 @@
 
 						$("#grid").kendoGrid({
 							dataSource: dataSource,
+							pageable: true,
 							height: 550,
 							toolbar: ["create"],
 							columns: [
@@ -106,8 +108,7 @@
 	</head>
 	<body>
 		<div class="k-block k-info-colored">
-			<p>This Kendo UI Grid is bound to PouchDB database. As you modify the data, it will be persisted. Reload the page to see for yourself.</p>
-			<p>Use <a href="https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa">PouchDB inspector</a> to modify demodb database. Modifications will appear immediately.</p>
+			<p>This Kendo UI Grid is bound to PouchDB database. You can use paging.</p>
 		</div>
 		<div>
 			
