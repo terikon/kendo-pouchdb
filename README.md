@@ -178,7 +178,7 @@ TODO
 # Use with Couchbase Mobile
 
 For POC project that binds Kendo Grid with [Couchbase Mobile](<http://www.couchbase.com/nosql-databases/couchbase-mobile>),
-see [kendo-pouchdb-app](<https://github.com/terikon/kendo-pouchdb-app>).
+via [Couchbase Lite Phonegap plugin](<https://github.com/couchbaselabs/Couchbase-Lite-PhoneGap-Plugin>), see [kendo-pouchdb-app](<https://github.com/terikon/kendo-pouchdb-app>) project.
 
 # API
 
