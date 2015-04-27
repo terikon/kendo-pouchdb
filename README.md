@@ -20,6 +20,7 @@ into DataSource in real time with CouchDB database, Cloudant or Couchbase.
 - [Work status](#work-status)
 - [Install](#install)
 - [Use](#use)
+- [Use with Couchbase Mobile](#use-with-couchbase-mobile)
 - [API](#api)
 - [Things to consider for future versions](#things-to-consider-for-future-versions)
 - [Contribute](#contribute)
@@ -173,6 +174,11 @@ multiple columns, this functionality is not supported.
 Of course, the _id field can be sorted by without providing view for it. 
 
 TODO
+
+# Use with Couchbase Mobile
+
+For POC project that binds Kendo Grid with [Couchbase Mobile](<http://www.couchbase.com/nosql-databases/couchbase-mobile>),
+see [kendo-pouchdb-app](<https://github.com/terikon/kendo-pouchdb-app>).
 
 # API
 
