@@ -12,7 +12,7 @@ Kendo UI widgets can be bound to data with *kendo.data.DataSource* object. With 
 of PouchDB database, with bi-directional synchronization between them.
 
 DataSource can be with sync with PouchDB local storage, like IndexedDB or Web SQL. And server side changes can be pushed
-into DataSource in real time with CouchDB database.
+into DataSource in real time with CouchDB database, Cloudant or Couchbase.
 
 # Table of contents
 
