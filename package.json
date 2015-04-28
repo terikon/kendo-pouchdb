@@ -21,7 +21,10 @@
   	"Kendo",
     "Kendo UI",
     "PouchDB",
-	"DataSource"
+	"DataSource",
+	"CouchDB",
+	"Couchbase",
+	"Cloudant"
   ],
   
   "author": {
