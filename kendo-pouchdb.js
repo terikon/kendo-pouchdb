@@ -40,32 +40,58 @@
 
                 this.fieldViews = fieldViews;
 
+                this.dataSource = options.data.dataSource; //we initialize one in PouchableDataSource.init().
+
                 kendo.data.RemoteTransport.fn.init.call(this, options);
             },
 
             push: function (callbacks) {
 
-                this.db.changes({
-                    since: 'now',
-                    live: true,
-                    include_docs: true
-                }).on('change', function (change) {
+                var that = this,
+                    changes = this.db.changes({
+                        since: 'now',
+                        live: true,
+                        include_docs: true
+                    });
+
+
+                changes.on('change', function (change) {
                     // change.id contains the doc id, change.doc contains the doc
 
-                    //TODO: check change.id is in selection range
+                    var doc = change.doc, datasourceItem;
 
                     if (change.deleted) {
-                        callbacks.pushDestroy(change.doc);
+                        callbacks.pushDestroy(doc);
                     } else {
                         // document was added/modified
                         // according to [this](http://pouchdb.com/guides/changes.html), cannot distinguish between added and modified
 
                         //call create, if already exist overriden DataSource.pushCreate will call pushUpdate.
 
-                        callbacks.pushCreate(change.doc);
-                    }
+                        //in such case, items will contain a single item
 
-                }).on('error', function (err) {
+                        datasourceItem = that.dataSource.get(doc._id);
+
+                        // check already fetched
+                        if (datasourceItem !== undefined) {
+                            //check change was caused by datasource itself, in which case push should not propagate
+                            if (doc._rev !== datasourceItem._rev) {
+                                //change arrived from PouchDB
+                                callbacks.pushUpdate(doc);
+                            } else {
+                                //change causes by datasource itself and synced with PouchDB
+                                return;
+                            }
+                        } else {
+                            //do not propagate create if paging is currently enabled
+                            if (!that.dataSource.pageSize()) {
+                                callbacks.pushCreate(doc);
+                            }
+                        }
+                    }
+                });
+
+                changes.on('error', function (err) {
                     // handle errors
                     //TODO
                 });
@@ -83,10 +109,16 @@
                     page = options.data.page,
                     //returns total number of design docs in database
                     countDesignDocs = function () {
+                        if (queryMethod !== that.db.allDocs) { //When allDocs is used, design documents are returned and needed to be substracted
+                            return PouchDB.utils.Promise.resolve(0);
+                        }
                         return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
                             return result.rows.length;
                         });
                     };
+
+                that._validateFilter(options.data.filter, options.data.sort);
+                var filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
 
                 if (limit !== undefined) {
                     if (page === undefined) {
@@ -97,15 +129,20 @@
                     skip = undefined;
                 }
 
+                var queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
+
                 countDesignDocs().then(function (totalDesignRows) {
-                        return queryMethod.call(that.db, { include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit })
+                        return queryMethod.call(that.db, queryOptions)
                             .then(function (response) {
+                                //TODO: If filter set, total_rows cannot be used - it counts all the documents, and not total filtered
                                 response.total_rows -= totalDesignRows; //subtracts design documents from total_rows
                                 options.success(response);
                             });
 
                     })
-                    .catch(options.error);
+                    .catch(function (err) {
+                        options.error([], err.status, err);
+                    });
 
             },
 
@@ -122,7 +159,7 @@
                             //TODO: conflict resolution
                             console.log(kendo.format("kendo-pouchdb: conflict occured for {0}: {1}", type, err));
                         }
-                        options.error(err);
+                        options.error([], err.status, err);
                     });
             },
 
@@ -161,17 +198,17 @@
 
             //Returns {fieldView:string, descending:bool}.
             //For default index, returns {descending:bool}.
-            _getFieldViewAndDirForSort: function (sorts) {
+            _getFieldViewAndDirForSort: function (sort) {
                 var field, descending, fieldView;
 
-                if (!sorts || sorts.length === 0) {
+                if (!sort || sort.length === 0) {
                     return { descending: false };
                 }
-                if (sorts.length > 1) {
+                if (sort.length > 1) {
                     throw new Error("Sorting by multiple fields is not supported by kendo-pouchdb");
                 }
-                field = sorts[0].field;
-                descending = sorts[0].dir && sorts[0].dir === "desc";
+                field = sort[0].field;
+                descending = sort[0].dir && sort[0].dir === "desc";
 
                 if (field === "_id" || field === this.idField) {
                     return { descending: descending };
@@ -184,6 +221,51 @@
                 }
 
                 return { fieldView: fieldView, descending: descending };
+            },
+
+            _validateFilter: function (filter, sort) {
+                if (!filter || filter.filters.length === 0) {
+                    return;
+                }
+
+                var filters = filter.filters;
+
+                if (filters.length > 1) {
+                    throw new Error("array of filters is currently not supported");
+                }
+
+                var filterField = filters[0].field,
+                    sortField = sort && sort.length > 0 ? sort[0].field : this.idField;
+
+                if (sortField != filterField) {
+                    throw new Error("filtering by field and then sorting by another field is not supported");
+                }
+            },
+
+            _getFilterQueryOptions: function (filter) {
+                if (!filter || filter.filters.length === 0) {
+                    return undefined;
+                }
+
+                var filterField = filter.filters[0].field,
+                    filterOperator = filter.filters[0].operator,
+                    filterValue = (filterField === this.idField || filterField === "_id") ? pouchCollate.toIndexableString(filter.filters[0].value) : filter.filters[0].value;
+
+                if (["neq", "gt"].indexOf(filterOperator) >= 0) {
+                    throw new Error(kendo.format("{0} operator is currently not supported for field '{1}'", filterOperator, filterField));
+                }
+
+                switch (filterOperator) {
+                case "eq":
+                    return { key: filterValue };
+                case "lt":
+                    return { endkey: filterValue, inclusive_end: false };
+                case "lte":
+                    return { endkey: filterValue, inclusive_end: true };
+                case "gte":
+                    return { startkey: filterValue };
+                }
+                return undefined;
             }
 
         });
@@ -268,40 +350,12 @@
                     //This is (a little hack) a way to pass options to transport.
                     options.data = {
                         //Here parameters to Transport can be put
-
+                        dataSource: this
                     };
 
                 }
 
                 kendo.data.DataSource.fn.init.apply(this, arguments);
-            },
-
-            //handles create and update
-            pushCreate: function (items) {
-                var dbItem, datasourceItem;
-                if (this._ispouchdb) {
-                    //in such case, items will contain a single item
-
-                    dbItem = items[0];
-                    datasourceItem = this.get(dbItem._id); //TODO: take filter and paging into account
-
-                    // check already fetched
-                    if (datasourceItem !== undefined) {
-                        //check change was caused by datasource itself, in which case push should not propagate
-                        if (dbItem._rev !== datasourceItem._rev) {
-                            //change arrived from PouchDB
-                            return kendo.data.DataSource.fn.pushUpdate.apply(this, arguments);
-                        } else {
-                            //change causes by datasource itself and synced with PouchDB
-                            return undefined;
-                        }
-
-                    } else {
-                        return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
-                    }
-
-                }
-                return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
             },
 
             //gets model id and calls original DataSource's get with id transformed by pouchCollate.toIndexableString.
