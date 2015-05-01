@@ -225,13 +225,12 @@ describe("kendo-pouchdb", function () {
 
         describe("push CRUD operations", function () {
 
+            var doc;
+
             beforeEach(function (done) {
                 datasource.fetch().then(done);
-            });
 
-            describe("putting a document to PouchDB", function () {
-
-                var doc = {
+                doc = {
                     _id: pouchCollate.toIndexableString(3),
                     myId: 3,
                     name: "Vasya",
@@ -239,6 +238,9 @@ describe("kendo-pouchdb", function () {
                     birthDate: new Date(2015, 4, 1),
                     male: true
                 };
+            });
+
+            describe("putting a document to PouchDB", function () {
 
                 beforeEach(function (done) {
                     var dbChangePromise = testHelper.waitForDbChanges(db, 1),
@@ -640,20 +642,20 @@ describe("kendo-pouchdb", function () {
         describe("sorting", function () {
 
             var addRowsAndSort = function (rows, field, dir) {
-                    var dbChangePromise = testHelper.waitForDbChanges(db, rows.length);
-                    pushSpy.reset();
+                var dbChangePromise = testHelper.waitForDbChanges(db, rows.length);
+                pushSpy.reset();
 
-                    testHelper.addArrayToDataSource(datasource, rows);
+                testHelper.addArrayToDataSource(datasource, rows);
 
-                    datasource.sort({ field: field, dir: dir });
+                datasource.sort({ field: field, dir: dir });
 
-                    var syncRefetchPromise = datasource.sync()
-                        .then(function () {
-                            return datasource.fetch();
-                        });
+                var syncRefetchPromise = datasource.sync()
+                    .then(function () {
+                        return datasource.fetch();
+                    });
 
-                    return $.when(dbChangePromise, syncRefetchPromise);
-                };
+                return $.when(dbChangePromise, syncRefetchPromise);
+            };
 
             describe("if sorting by field without index", function () {
 
@@ -865,6 +867,60 @@ describe("kendo-pouchdb", function () {
 
                 });
 
+                describe("updating a document in PouchDB ", function () {
+
+                    //returns promise
+                    var updateDocNameInDb = function (id) {
+                        return db.get(pouchCollate.toIndexableString(id)).then(function (doc2Update) {
+
+                            doc2Update.name += "updated";
+
+                            var dbChangePromise = testHelper.waitForDbChanges(db, 1),
+                                putPromise = db.put(doc2Update);
+
+                            return $.when(dbChangePromise, putPromise);
+                        });
+                    };
+
+                    beforeEach(function () {
+                        pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                        changeSpy = testHelper.spyKendoEvent(datasource, "change");
+                    });
+
+                    describe("that in range", function () {
+
+                        beforeEach(function (done) {
+                            updateDocNameInDb(3).then(done);
+                        });
+
+                        it("should push update to datasourse", function () {
+                            expect(pushSpy.events.length).toEqual(1);
+                            expect(pushSpy.events[0].e.type).toEqual("update");
+                            var item = pushSpy.events[0].e.items[0];
+                            expect(item._id).toBe(pouchCollate.toIndexableString(3));
+                        });
+
+                    });
+
+                    describe("that not in range", function () {
+
+                        beforeEach(function (done) {
+                            updateDocNameInDb(1).then(done);
+                        });
+
+                        it("should not push update to datasourse", function () {
+                            expect(pushSpy.events.length).toEqual(0);
+                        });
+
+                    });
+
+                    afterEach(function () {
+                        pushSpy.dispose();
+                        changeSpy.dispose();
+                    });
+
+                });
+
             });
 
             describe("page in the end", function () {
@@ -899,6 +955,60 @@ describe("kendo-pouchdb", function () {
                     expect(view[1].passport).toBe(2);
                 });
 
+            });
+
+        });
+
+        describe("error handling", function () {
+
+            var errorSpy;
+
+            beforeEach(function () {
+
+                datasource = createDataSource("name");
+                errorSpy = testHelper.spyKendoEvent(datasource, "error");
+            });
+
+            describe("error in fetch", function () {
+
+                beforeEach(function () {
+                    spyOn(db, "allDocs").and.returnValue(PouchDB.utils.Promise.reject("simulated PouchDB.allDocs error"));
+                });
+
+                it("should raise error event on datasource", function (done) {
+                    datasource.fetch().fail(function () {
+                        setTimeout(function () {
+                            expect(errorSpy.events.length).toEqual(1);
+                            expect(errorSpy.events[0].e.errorThrown).toEqual("simulated PouchDB.allDocs error");
+                            done();
+                        }, 0);
+                    });
+                });
+
+            });
+
+            describe("error in add", function () {
+
+                beforeEach(function (done) {
+                    spyOn(db, "put").and.returnValue(PouchDB.utils.Promise.reject("simulated PouchDB.put error"));
+                    datasource.fetch().then(done);
+                });
+
+                it("should raise error event on datasource", function (done) {
+                    datasource.add(createDatasourceDoc(1, "A"));
+                    datasource.sync().fail(function () {
+                        setTimeout(function () {
+                            expect(errorSpy.events.length).toEqual(1);
+                            expect(errorSpy.events[0].e.errorThrown).toEqual("simulated PouchDB.put error");
+                            done();
+                        }, 0);
+                    });
+                });
+
+            });
+
+            afterEach(function () {
+                errorSpy.dispose();
             });
 
         });

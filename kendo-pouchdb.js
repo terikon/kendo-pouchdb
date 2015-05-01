@@ -40,32 +40,58 @@
 
                 this.fieldViews = fieldViews;
 
+                this.dataSource = options.data.dataSource; //we initialize one in PouchableDataSource.init().
+
                 kendo.data.RemoteTransport.fn.init.call(this, options);
             },
 
             push: function (callbacks) {
 
-                this.db.changes({
-                    since: 'now',
-                    live: true,
-                    include_docs: true
-                }).on('change', function (change) {
+                var that = this,
+                    changes = this.db.changes({
+                        since: 'now',
+                        live: true,
+                        include_docs: true
+                    });
+
+
+                changes.on('change', function (change) {
                     // change.id contains the doc id, change.doc contains the doc
 
-                    //TODO: check change.id is in selection range
+                    var doc = change.doc, datasourceItem;
 
                     if (change.deleted) {
-                        callbacks.pushDestroy(change.doc);
+                        callbacks.pushDestroy(doc);
                     } else {
                         // document was added/modified
                         // according to [this](http://pouchdb.com/guides/changes.html), cannot distinguish between added and modified
 
                         //call create, if already exist overriden DataSource.pushCreate will call pushUpdate.
 
-                        callbacks.pushCreate(change.doc);
-                    }
+                        //in such case, items will contain a single item
 
-                }).on('error', function (err) {
+                        datasourceItem = that.dataSource.get(doc._id);
+
+                        // check already fetched
+                        if (datasourceItem !== undefined) {
+                            //check change was caused by datasource itself, in which case push should not propagate
+                            if (doc._rev !== datasourceItem._rev) {
+                                //change arrived from PouchDB
+                                callbacks.pushUpdate(doc);
+                            } else {
+                                //change causes by datasource itself and synced with PouchDB
+                                return;
+                            }
+                        } else {
+                            //do not propagate create if paging is currently enabled
+                            if (!that.dataSource.pageSize()) {
+                                callbacks.pushCreate(doc);
+                            }
+                        }
+                    }
+                });
+
+                changes.on('error', function (err) {
                     // handle errors
                     //TODO
                 });
@@ -105,7 +131,9 @@
                             });
 
                     })
-                    .catch(options.error);
+                    .catch(function (err) {
+                        options.error([], err.status, err);
+                    });
 
             },
 
@@ -122,7 +150,7 @@
                             //TODO: conflict resolution
                             console.log(kendo.format("kendo-pouchdb: conflict occured for {0}: {1}", type, err));
                         }
-                        options.error(err);
+                        options.error([], err.status, err);
                     });
             },
 
@@ -268,40 +296,12 @@
                     //This is (a little hack) a way to pass options to transport.
                     options.data = {
                         //Here parameters to Transport can be put
-
+                        dataSource: this
                     };
 
                 }
 
                 kendo.data.DataSource.fn.init.apply(this, arguments);
-            },
-
-            //handles create and update
-            pushCreate: function (items) {
-                var dbItem, datasourceItem;
-                if (this._ispouchdb) {
-                    //in such case, items will contain a single item
-
-                    dbItem = items[0];
-                    datasourceItem = this.get(dbItem._id); //TODO: take filter and paging into account
-
-                    // check already fetched
-                    if (datasourceItem !== undefined) {
-                        //check change was caused by datasource itself, in which case push should not propagate
-                        if (dbItem._rev !== datasourceItem._rev) {
-                            //change arrived from PouchDB
-                            return kendo.data.DataSource.fn.pushUpdate.apply(this, arguments);
-                        } else {
-                            //change causes by datasource itself and synced with PouchDB
-                            return undefined;
-                        }
-
-                    } else {
-                        return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
-                    }
-
-                }
-                return kendo.data.DataSource.fn.pushCreate.apply(this, arguments);
             },
 
             //gets model id and calls original DataSource's get with id transformed by pouchCollate.toIndexableString.
