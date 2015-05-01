@@ -1,7 +1,7 @@
 {
   "name": "kendo-pouchdb",
   "main": "kendo-pouchdb.js",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Kendo UI adapter for PouchDB",
   
   "homepage": "https://github.com/terikon/kendo-pouchdb",

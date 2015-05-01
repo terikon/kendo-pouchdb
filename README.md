@@ -53,14 +53,16 @@ Implemented
 - Add support for bower.
 - Add to npmjs.
 - Implement paging.
+- Implement filtering (partly).
 
 In progress
-- Implement filtering.
 - Implement grouping.
 - Batch option support.
 - Add demos and jsbin/dojo examples.
 - Add the lib to CDN.
 - Write documentation.
+- Total still not works in filtering.
+- Make it possible to specify default PouchDB view to work with.
 
 # Install
 
@@ -172,6 +174,15 @@ Exception will be thrown if trying to sort by field that has no index. Exception
 multiple columns, this functionality is not supported.
 
 Of course, the _id field can be sorted by without providing view for it. 
+
+## Filtering
+
+Filtering is limited.
+
+- Multiple filters are not supported.
+- When filer applied to field other than id field, sort should be applied to this field either.
+- Currently "neq" and "gt" operators are not supported.
+- dataSource.total() currently returns total number of documents, and not number of documents in current filter.
 
 TODO
 

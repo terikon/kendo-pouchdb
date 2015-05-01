@@ -109,10 +109,16 @@
                     page = options.data.page,
                     //returns total number of design docs in database
                     countDesignDocs = function () {
+                        if (queryMethod !== that.db.allDocs) { //When allDocs is used, design documents are returned and needed to be substracted
+                            return PouchDB.utils.Promise.resolve(0);
+                        }
                         return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
                             return result.rows.length;
                         });
                     };
+
+                that._validateFilter(options.data.filter, options.data.sort);
+                var filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
 
                 if (limit !== undefined) {
                     if (page === undefined) {
@@ -123,9 +129,12 @@
                     skip = undefined;
                 }
 
+                var queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
+
                 countDesignDocs().then(function (totalDesignRows) {
-                        return queryMethod.call(that.db, { include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit })
+                        return queryMethod.call(that.db, queryOptions)
                             .then(function (response) {
+                                //TODO: If filter set, total_rows cannot be used - it counts all the documents, and not total filtered
                                 response.total_rows -= totalDesignRows; //subtracts design documents from total_rows
                                 options.success(response);
                             });
@@ -189,17 +198,17 @@
 
             //Returns {fieldView:string, descending:bool}.
             //For default index, returns {descending:bool}.
-            _getFieldViewAndDirForSort: function (sorts) {
+            _getFieldViewAndDirForSort: function (sort) {
                 var field, descending, fieldView;
 
-                if (!sorts || sorts.length === 0) {
+                if (!sort || sort.length === 0) {
                     return { descending: false };
                 }
-                if (sorts.length > 1) {
+                if (sort.length > 1) {
                     throw new Error("Sorting by multiple fields is not supported by kendo-pouchdb");
                 }
-                field = sorts[0].field;
-                descending = sorts[0].dir && sorts[0].dir === "desc";
+                field = sort[0].field;
+                descending = sort[0].dir && sort[0].dir === "desc";
 
                 if (field === "_id" || field === this.idField) {
                     return { descending: descending };
@@ -212,6 +221,51 @@
                 }
 
                 return { fieldView: fieldView, descending: descending };
+            },
+
+            _validateFilter: function (filter, sort) {
+                if (!filter || filter.filters.length === 0) {
+                    return;
+                }
+
+                var filters = filter.filters;
+
+                if (filters.length > 1) {
+                    throw new Error("array of filters is currently not supported");
+                }
+
+                var filterField = filters[0].field,
+                    sortField = sort && sort.length > 0 ? sort[0].field : this.idField;
+
+                if (sortField != filterField) {
+                    throw new Error("filtering by field and then sorting by another field is not supported");
+                }
+            },
+
+            _getFilterQueryOptions: function (filter) {
+                if (!filter || filter.filters.length === 0) {
+                    return undefined;
+                }
+
+                var filterField = filter.filters[0].field,
+                    filterOperator = filter.filters[0].operator,
+                    filterValue = (filterField === this.idField || filterField === "_id") ? pouchCollate.toIndexableString(filter.filters[0].value) : filter.filters[0].value;
+
+                if (["neq", "gt"].indexOf(filterOperator) >= 0) {
+                    throw new Error(kendo.format("{0} operator is currently not supported for field '{1}'", filterOperator, filterField));
+                }
+
+                switch (filterOperator) {
+                case "eq":
+                    return { key: filterValue };
+                case "lt":
+                    return { endkey: filterValue, inclusive_end: false };
+                case "lte":
+                    return { endkey: filterValue, inclusive_end: true };
+                case "gte":
+                    return { startkey: filterValue };
+                }
+                return undefined;
             }
 
         });
