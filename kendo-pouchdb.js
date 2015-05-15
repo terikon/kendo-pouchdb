@@ -58,37 +58,41 @@
                 changes.on('change', function (change) {
                     // change.id contains the doc id, change.doc contains the doc
 
-                    var doc = change.doc, datasourceItem;
+                    var currentCrudPromises = that._crudPromises.slice(),
+                        doc = change.doc, datasourceItem;
 
-                    if (change.deleted) {
-                        callbacks.pushDestroy(doc);
-                    } else {
-                        // document was added/modified
-                        // according to [this](http://pouchdb.com/guides/changes.html), cannot distinguish between added and modified
-
-                        //call create, if already exist overriden DataSource.pushCreate will call pushUpdate.
-
-                        //in such case, items will contain a single item
-
-                        datasourceItem = that.dataSource.get(doc._id);
-
-                        // check already fetched
-                        if (datasourceItem !== undefined) {
-                            //check change was caused by datasource itself, in which case push should not propagate
-                            if (doc._rev !== datasourceItem._rev) {
-                                //change arrived from PouchDB
-                                callbacks.pushUpdate(doc);
-                            } else {
-                                //change causes by datasource itself and synced with PouchDB
-                                return;
-                            }
+                    //wait for all current crud promises to resolve
+                    $.when.apply($, currentCrudPromises).then(function () {
+                        if (change.deleted) {
+                            callbacks.pushDestroy(doc);
                         } else {
-                            //do not propagate create if paging is currently enabled
-                            if (!that.dataSource.pageSize()) {
-                                callbacks.pushCreate(doc);
+                            // document was added/modified
+                            // according to [this](http://pouchdb.com/guides/changes.html), cannot distinguish between added and modified
+
+                            //call create, if already exist overriden DataSource.pushCreate will call pushUpdate.
+
+                            //in such case, items will contain a single item
+
+                            datasourceItem = that.dataSource.get(doc._id);
+
+                            // check already fetched
+                            if (datasourceItem !== undefined) {
+                                //check change was caused by datasource itself, in which case push should not propagate
+                                if (doc._rev !== datasourceItem._rev) {
+                                    //change arrived from PouchDB
+                                    callbacks.pushUpdate(doc);
+                                } else {
+                                    //change causes by datasource itself and synced with PouchDB
+                                    return;
+                                }
+                            } else {
+                                //do not propagate create if paging is currently enabled
+                                if (!that.dataSource.pageSize()) {
+                                    callbacks.pushCreate(doc);
+                                }
                             }
                         }
-                    }
+                    });
                 });
 
                 changes.on('error', function (err) {
@@ -146,20 +150,36 @@
 
             },
 
+            //promises for crud async operation, being removed as resolve.
+            _crudPromises: [],
+
             //Does not support read.
             //operation: function(data), called on this.
             _crud: function (type, data, options, operation) {
+                var that = this,
+                    deferred = new $.Deferred(),
+                    crudPromise = deferred.promise(),
+                    resolveCrudDeferred = function () {
+                        deferred.resolve();
+                        var index = that._crudPromises.indexOf(crudPromise);
+                        that._crudPromises.splice(index, 1);
+                    };
+
+                this._crudPromises.push(crudPromise);
+
                 operation.call(this, data)
                     .then(function (response) {
                         data._rev = response.rev;
                         options.success(data);
+                        resolveCrudDeferred();
                     })
                     .catch(function (err) {
                         if (err.status === 409) {
                             //TODO: conflict resolution
                             console.log(kendo.format("kendo-pouchdb: conflict occured for {0}: {1}", type, err));
                         }
-                        options.error([], err.status, err);
+                        options.error([], err.status, err); //TODO: first parameter seems to be err
+                        resolveCrudDeferred();
                     });
             },
 
