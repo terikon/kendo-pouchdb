@@ -58,37 +58,41 @@
                 changes.on('change', function (change) {
                     // change.id contains the doc id, change.doc contains the doc
 
-                    var doc = change.doc, datasourceItem;
+                    var currentCrudPromises = that._crudPromises.slice(),
+                        doc = change.doc, datasourceItem;
 
-                    if (change.deleted) {
-                        callbacks.pushDestroy(doc);
-                    } else {
-                        // document was added/modified
-                        // according to [this](http://pouchdb.com/guides/changes.html), cannot distinguish between added and modified
-
-                        //call create, if already exist overriden DataSource.pushCreate will call pushUpdate.
-
-                        //in such case, items will contain a single item
-
-                        datasourceItem = that.dataSource.get(doc._id);
-
-                        // check already fetched
-                        if (datasourceItem !== undefined) {
-                            //check change was caused by datasource itself, in which case push should not propagate
-                            if (doc._rev !== datasourceItem._rev) {
-                                //change arrived from PouchDB
-                                callbacks.pushUpdate(doc);
-                            } else {
-                                //change causes by datasource itself and synced with PouchDB
-                                return;
-                            }
+                    //wait for all current crud promises to resolve
+                    $.when.apply($, currentCrudPromises).then(function () {
+                        if (change.deleted) {
+                            callbacks.pushDestroy(doc);
                         } else {
-                            //do not propagate create if paging is currently enabled
-                            if (!that.dataSource.pageSize()) {
-                                callbacks.pushCreate(doc);
+                            // document was added/modified
+                            // according to [this](http://pouchdb.com/guides/changes.html), cannot distinguish between added and modified
+
+                            //call create, if already exist overriden DataSource.pushCreate will call pushUpdate.
+
+                            //in such case, items will contain a single item
+
+                            datasourceItem = that.dataSource.get(doc._id);
+
+                            // check already fetched
+                            if (datasourceItem !== undefined) {
+                                //check change was caused by datasource itself, in which case push should not propagate
+                                if (doc._rev !== datasourceItem._rev) {
+                                    //change arrived from PouchDB
+                                    callbacks.pushUpdate(doc);
+                                } else {
+                                    //change causes by datasource itself and synced with PouchDB
+                                    return;
+                                }
+                            } else {
+                                //do not propagate create if paging is currently enabled
+                                if (!that.dataSource.pageSize()) {
+                                    callbacks.pushCreate(doc);
+                                }
                             }
                         }
-                    }
+                    });
                 });
 
                 changes.on('error', function (err) {
@@ -103,22 +107,27 @@
 
                 var that = this,
                     fieldViewAndDir = this._getFieldViewAndDirForSort(options.data.sort),
-                    queryMethod = fieldViewAndDir.fieldView ? that.db.query.bind(that.db, fieldViewAndDir.fieldView) : that.db.allDocs,
+                    useQuery = !!fieldViewAndDir.fieldView,
+                    applyFilter,
+                    applyPaging,
+                    queryMethod = useQuery ? that.db.query.bind(that.db, fieldViewAndDir.fieldView) : that.db.allDocs,
                     skip,
                     limit = options.data.pageSize,
                     page = options.data.page,
                     //returns total number of design docs in database
-                    countDesignDocs = function () {
-                        if (queryMethod !== that.db.allDocs) { //When allDocs is used, design documents are returned and needed to be substracted
+                    countDocsToSubtract = function () {
+                        if (useQuery || applyFilter) { //When allDocs is used, design documents are returned and needed to be subtracted
                             return PouchDB.utils.Promise.resolve(0);
                         }
                         return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
                             return result.rows.length;
                         });
-                    };
+                    },
+                    filterQueryOptions;
 
                 that._validateFilter(options.data.filter, options.data.sort);
-                var filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
+                filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
+                applyFilter = !!filterQueryOptions;
 
                 if (limit !== undefined) {
                     if (page === undefined) {
@@ -128,17 +137,40 @@
                 } else {
                     skip = undefined;
                 }
+                applyPaging = (skip!==undefined || limit!==undefined);
 
-                var queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
+                var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions),
+                    queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
 
-                countDesignDocs().then(function (totalDesignRows) {
+                countDocsToSubtract().then(function (totalRowsToSubtract) {
                         return queryMethod.call(that.db, queryOptions)
                             .then(function (response) {
-                                //TODO: If filter set, total_rows cannot be used - it counts all the documents, and not total filtered
-                                response.total_rows -= totalDesignRows; //subtracts design documents from total_rows
-                                options.success(response);
+                                if (!useQuery && !applyFilter) {
+                                    response.total_rows -= totalRowsToSubtract; //subtracts design documents from total_rows
+                                    return response;
+                                } else if (!applyPaging) {
+                                    response.total_rows = 0;
+                                    $.each(response.rows, function () {
+                                        if (this.doc._id.indexOf("_design/") !== 0) {
+                                            response.total_rows += 1;
+                                        }
+                                    });
+                                    return response;
+                                } else {
+                                    return queryMethod.call(that.db, totalQueryOptions)
+                                        .then(function (totalResult) {
+                                            if (!useQuery) {
+                                                response.total_rows = totalResult.rows.length;
+                                                return response;
+                                            }
+                                            response.total_rows = totalResult.rows.length; //strangely, even when reduce:"_count" used, rows are still returned.
+                                            return response;
+                                        });
+                                }
                             });
-
+                    })
+                    .then(function (response) {
+                        options.success(response);
                     })
                     .catch(function (err) {
                         options.error([], err.status, err);
@@ -146,20 +178,36 @@
 
             },
 
+            //promises for crud async operation, being removed as resolve.
+            _crudPromises: [],
+
             //Does not support read.
             //operation: function(data), called on this.
             _crud: function (type, data, options, operation) {
+                var that = this,
+                    deferred = new $.Deferred(),
+                    crudPromise = deferred.promise(),
+                    resolveCrudDeferred = function () {
+                        deferred.resolve();
+                        var index = that._crudPromises.indexOf(crudPromise);
+                        that._crudPromises.splice(index, 1);
+                    };
+
+                this._crudPromises.push(crudPromise);
+
                 operation.call(this, data)
                     .then(function (response) {
                         data._rev = response.rev;
                         options.success(data);
+                        resolveCrudDeferred();
                     })
                     .catch(function (err) {
                         if (err.status === 409) {
                             //TODO: conflict resolution
                             console.log(kendo.format("kendo-pouchdb: conflict occured for {0}: {1}", type, err));
                         }
-                        options.error([], err.status, err);
+                        options.error([], err.status, err); //TODO: first parameter seems to be err
+                        resolveCrudDeferred();
                     });
             },
 
