@@ -788,6 +788,26 @@ describe("kendo-pouchdb", function () {
                             expect(datasource.at(2).passport).toBe(3);
                         });
 
+                        describe("with paging", function () {
+
+                            beforeEach(function (done) {
+                                datasource.pageSize(2);
+                                datasource.page(2);
+                                datasource.fetch().then(done);
+                            });
+
+                            it("total should be as without paging", function () {
+                                expect(datasource.total()).toBe(3);
+                            });
+
+                            it("should return paged rows", function () {
+                                var view = datasource.view();
+                                expect(view.length).toBe(1);
+                                expect(view[0].passport).toBe(3);
+                            });
+
+                        });
+
                     });
 
                     describe("sorting descending", function () {
@@ -971,6 +991,26 @@ describe("kendo-pouchdb", function () {
 
                         it("should get total equal to rows in filter", function () {
                             expect(datasource.total()).toBe(3);
+                        });
+
+                        describe("with paging", function () {
+
+                            beforeEach(function (done) {
+                                datasource.pageSize(2);
+                                datasource.page(2);
+                                datasource.fetch().then(done);
+                            });
+
+                            it("total should be as without paging", function () {
+                                expect(datasource.total()).toBe(3);
+                            });
+
+                            it("should return paged rows", function () {
+                                var view = datasource.view();
+                                expect(view.length).toBe(1);
+                                expect(view[0].passport).toBe(3);
+                            });
+
                         });
 
                     });

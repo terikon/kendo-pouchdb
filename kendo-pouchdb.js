@@ -107,22 +107,27 @@
 
                 var that = this,
                     fieldViewAndDir = this._getFieldViewAndDirForSort(options.data.sort),
-                    queryMethod = fieldViewAndDir.fieldView ? that.db.query.bind(that.db, fieldViewAndDir.fieldView) : that.db.allDocs,
+                    useQuery = !!fieldViewAndDir.fieldView,
+                    applyFilter,
+                    applyPaging,
+                    queryMethod = useQuery ? that.db.query.bind(that.db, fieldViewAndDir.fieldView) : that.db.allDocs,
                     skip,
                     limit = options.data.pageSize,
                     page = options.data.page,
                     //returns total number of design docs in database
-                    countDesignDocs = function () {
-                        if (queryMethod !== that.db.allDocs) { //When allDocs is used, design documents are returned and needed to be substracted
+                    countDocsToSubtract = function () {
+                        if (useQuery || applyFilter) { //When allDocs is used, design documents are returned and needed to be subtracted
                             return PouchDB.utils.Promise.resolve(0);
                         }
                         return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
                             return result.rows.length;
                         });
-                    };
+                    },
+                    filterQueryOptions;
 
                 that._validateFilter(options.data.filter, options.data.sort);
-                var filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
+                filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
+                applyFilter = !!filterQueryOptions;
 
                 if (limit !== undefined) {
                     if (page === undefined) {
@@ -132,17 +137,40 @@
                 } else {
                     skip = undefined;
                 }
+                applyPaging = (skip!==undefined || limit!==undefined);
 
-                var queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
+                var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions),
+                    queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
 
-                countDesignDocs().then(function (totalDesignRows) {
+                countDocsToSubtract().then(function (totalRowsToSubtract) {
                         return queryMethod.call(that.db, queryOptions)
                             .then(function (response) {
-                                //TODO: If filter set, total_rows cannot be used - it counts all the documents, and not total filtered
-                                response.total_rows -= totalDesignRows; //subtracts design documents from total_rows
-                                options.success(response);
+                                if (!useQuery && !applyFilter) {
+                                    response.total_rows -= totalRowsToSubtract; //subtracts design documents from total_rows
+                                    return response;
+                                } else if (!applyPaging) {
+                                    response.total_rows = 0;
+                                    $.each(response.rows, function () {
+                                        if (this.doc._id.indexOf("_design/") !== 0) {
+                                            response.total_rows += 1;
+                                        }
+                                    });
+                                    return response;
+                                } else {
+                                    return queryMethod.call(that.db, totalQueryOptions)
+                                        .then(function (totalResult) {
+                                            if (!useQuery) {
+                                                response.total_rows = totalResult.rows.length;
+                                                return response;
+                                            }
+                                            response.total_rows = totalResult.rows.length; //strangely, even when reduce:"_count" used, rows are still returned.
+                                            return response;
+                                        });
+                                }
                             });
-
+                    })
+                    .then(function (response) {
+                        options.success(response);
                     })
                     .catch(function (err) {
                         options.error([], err.status, err);
