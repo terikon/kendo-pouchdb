@@ -62,6 +62,8 @@ In progress
 - Add demos and jsbin/dojo examples.
 - Add the lib to CDN.
 - Write documentation.
+- Replace Map/Reduce implementation with [pouchdb-find](<https://github.com/nolanlawson/pouchdb-find>) as it will be released.
+It will make complex filtering/sorting implementation much more convenient.
 
 # Install
 
@@ -216,7 +218,7 @@ TODO
 
 # Things to consider for future versions
 
-- TODO 
+- [pouchdb-find](<https://github.com/nolanlawson/pouchdb-find>) for sorting/filtering.
 
 # Contribute
 
