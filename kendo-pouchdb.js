@@ -20,6 +20,7 @@
                 var pouchdb = options && options.pouchdb ? options.pouchdb : {},
                     db = pouchdb.db,
                     idField = pouchdb.idField,
+                    defaultView = pouchdb.defaultView,
                     fieldViews = pouchdb.fieldViews || {};
 
                 if (!db) {
@@ -30,16 +31,14 @@
                     throw new Error('The "db" option must be a PouchDB object.');
                 }
 
-                this.db = db;
-
                 if (!idField) {
                     throw new Error('The "idField" option must be set.');
                 }
 
+                this.db = db;
                 this.idField = idField;
-
+                this.defaultView = defaultView;
                 this.fieldViews = fieldViews;
-
                 this.dataSource = options.data.dataSource; //we initialize one in PouchableDataSource.init().
 
                 kendo.data.RemoteTransport.fn.init.call(this, options);
@@ -51,7 +50,9 @@
                     changes = this.db.changes({
                         since: 'now',
                         live: true,
-                        include_docs: true
+                        include_docs: true,
+                        filter: that.defaultView ? "_view" : undefined,
+                        view: that.defaultView
                     });
 
 
@@ -59,7 +60,8 @@
                     // change.id contains the doc id, change.doc contains the doc
 
                     var currentCrudPromises = that._crudPromises.slice(),
-                        doc = change.doc, datasourceItem;
+                        doc = change.doc,
+                        datasourceItem;
 
                     //wait for all current crud promises to resolve
                     $.when.apply($, currentCrudPromises).then(function () {
@@ -106,7 +108,7 @@
                 //options.data contain filter,group,page,sort info
 
                 var that = this,
-                    fieldViewAndDir = this._getFieldViewAndDirForSort(options.data.sort),
+                    fieldViewAndDir = that._getFieldViewAndDirForSort(options.data.sort),
                     useQuery = !!fieldViewAndDir.fieldView,
                     applyFilter,
                     applyPaging,
@@ -137,7 +139,7 @@
                 } else {
                     skip = undefined;
                 }
-                applyPaging = (skip!==undefined || limit!==undefined);
+                applyPaging = (skip !== undefined || limit !== undefined);
 
                 var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions),
                     queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
@@ -247,10 +249,10 @@
             //Returns {fieldView:string, descending:bool}.
             //For default index, returns {descending:bool}.
             _getFieldViewAndDirForSort: function (sort) {
-                var field, descending, fieldView;
+                var field, descending, fieldView, defaultView = this.defaultView;
 
                 if (!sort || sort.length === 0) {
-                    return { descending: false };
+                    return { fieldView: defaultView, descending: false };
                 }
                 if (sort.length > 1) {
                     throw new Error("Sorting by multiple fields is not supported by kendo-pouchdb");
@@ -259,7 +261,7 @@
                 descending = sort[0].dir && sort[0].dir === "desc";
 
                 if (field === "_id" || field === this.idField) {
-                    return { descending: descending };
+                    return { fieldView: defaultView, descending: descending };
                 }
 
                 fieldView = this.fieldViews[field];

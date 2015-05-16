@@ -54,6 +54,7 @@ Implemented
 - Add to npmjs.
 - Implement paging.
 - Implement filtering (partly).
+- Make it possible to specify default PouchDB view to work with.
 
 In progress
 - Implement grouping.
@@ -61,8 +62,6 @@ In progress
 - Add demos and jsbin/dojo examples.
 - Add the lib to CDN.
 - Write documentation.
-- Total still not works in filtering.
-- Make it possible to specify default PouchDB view to work with.
 
 # Install
 
@@ -148,6 +147,26 @@ var Model = kendo.data.Model.define({
 });
 ```
 
+## Default View
+
+Default view can be provided, so data will be fetched used this view:
+
+```js
+var dataSource = new kendo.data.PouchableDataSource({
+    type: "pouchdb",
+    transport: {
+        pouchdb: {
+            db: db,
+            idField: "passport",
+            defaultView: "people/withName"
+        }
+    });
+    
+//Now the data from people/withName view will be fetched.
+```
+
+Pay attention that if sorting specified, sort view from fieldViews will be used instead of default view.
+
 ## Sorting
 
 For sort to work, appropriate view should be provided for each field that will be used for sorting:
@@ -173,7 +192,7 @@ var dataSource = new kendo.data.PouchableDataSource({
 Exception will be thrown if trying to sort by field that has no index. Exception will be thrown if trying to sort by
 multiple columns, this functionality is not supported.
 
-Of course, the _id field can be sorted by without providing view for it. 
+When sorting by the _id field, do not provide view for it in fieldViews. Use defaultView instead. 
 
 ## Filtering
 

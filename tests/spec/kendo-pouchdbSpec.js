@@ -340,7 +340,7 @@ describe("kendo-pouchdb", function () {
                         return createDbDoc(num, "Vasya" + num);
                     }),
 
-                    dbChangePromise = testHelper.waitForDbChanges(db, 10),
+                    dbChangePromise = testHelper.waitForDbChanges(db, docs.length),
                     bulkDocsPromise = db.bulkDocs(docs);
 
                 $.when(bulkDocsPromise, dbChangePromise).then(done);
@@ -488,7 +488,7 @@ describe("kendo-pouchdb", function () {
         var datasource,
             pushSpy,
             changeSpy,
-            createDataSource = function (idColumn, fieldViews) {
+            createDataSource = function (idColumn, fieldViews, defaultView) {
                 return new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
@@ -506,6 +506,7 @@ describe("kendo-pouchdb", function () {
                         pouchdb: {
                             db: db,
                             idField: idColumn,
+                            defaultView: defaultView,
                             fieldViews: fieldViews
                         }
                     }
@@ -519,6 +520,11 @@ describe("kendo-pouchdb", function () {
                     name: name,
                     birthDate: birthDate || new Date(2015, 4, 1)
                 };
+            },
+            createDbDoc = function (idField, passport, name, birthDate) {
+                var doc = createDatasourceDoc(passport, name, birthDate);
+                doc._id = pouchCollate.toIndexableString(doc[idField]);
+                return doc;
             },
             addIndex = function (indexName, viewName, field) {
                 var ddoc = {
@@ -1189,6 +1195,59 @@ describe("kendo-pouchdb", function () {
                     expect(view.length).toBe(2);
                     expect(view[0].passport).toBe(3);
                     expect(view[1].passport).toBe(2);
+                });
+
+            });
+
+        });
+
+        describe("default view", function () {
+
+            beforeEach(function (done) {
+
+                var docsDontTake = _.map(_.range(3), function (num) { //3 not not take
+                        return createDbDoc("passport", num, null);
+                    }),
+                    docsTake = _.map(_.range(3, 10), function (num) { //7 to take
+                        return createDbDoc("passport", num, "Vasya" + num);
+                    }),
+                    docs = _.shuffle(_.union(
+                        docsDontTake,
+                        docsTake,
+                        [
+                            {
+                                _id: '_design/people',
+                                views: {
+                                    withName: {
+                                        map: function (doc) {
+                                            if (doc.name) {
+                                                emit(doc._id);
+                                            }
+                                        }.toString()
+                                    }
+                                }
+                            }
+                        ])),
+
+                    dbChangePromise = testHelper.waitForDbChanges(db, docs.length),
+                    bulkDocsPromise = db.bulkDocs(docs);
+
+                datasource = createDataSource("passport", undefined, 'people/withName');
+
+                $.when(bulkDocsPromise, dbChangePromise).then(done);
+
+            });
+
+            describe("when fetched", function () {
+
+                beforeEach(function (done) {
+                    datasource.fetch().then(done);
+                });
+
+                it("should fetch data filtered by view", function () {
+                    expect(datasource.total()).toEqual(7);
+                    expect(datasource.at(0).passport).toEqual(3);
+                    expect(datasource.at(6).passport).toEqual(9);
                 });
 
             });
