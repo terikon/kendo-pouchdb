@@ -42,7 +42,8 @@ module.exports = function(grunt) {
 						'vendor/kendo/kendo.core.js',
 						'vendor/kendo/kendo.data.js',
 						'node_modules/pouchdb/dist/pouchdb.js',
-						'node_modules/pouchdb-collate/dist/pouchdb-collate.js'
+						'node_modules/pouchdb-collate/dist/pouchdb-collate.js',
+						'node_modules/pouchdb-find/dist/pouchdb.find.js'
 					]
 				}
 			}

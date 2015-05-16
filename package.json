@@ -4,54 +4,46 @@
   "version": "0.0.8",
   "description": "Kendo UI adapter for PouchDB",
   "main": "kendo-pouchdb.js",
-  
   "scripts": {
-	"//": "use '|| true' to prevent warning",
-	"build": "npm install && grunt",
+    "//": "use '|| true' to prevent warning",
+    "build": "npm install && grunt",
     "test": "grunt test",
-	"jshint": "grunt jshint"
+    "jshint": "grunt jshint"
   },
-  
   "repository": {
     "type": "git",
     "url": "https://github.com/terikon/kendo-pouchdb.git"
   },
-  
   "keywords": [
-  	"Kendo",
+    "Kendo",
     "Kendo UI",
     "PouchDB",
-	"DataSource",
-	"CouchDB",
-	"Couchbase",
-	"Cloudant"
+    "DataSource",
+    "CouchDB",
+    "Couchbase",
+    "Cloudant"
   ],
-  
   "author": {
-	"name": "Terikon Software",
-	"email": "npm@terikon.com",
-	"url": "http://il.linkedin.com/in/romanviskin" 
+    "name": "Terikon Software",
+    "email": "npm@terikon.com",
+    "url": "http://il.linkedin.com/in/romanviskin"
   },
-  
   "license": "MIT",
-  
   "bugs": {
     "url": "https://github.com/terikon/kendo-pouchdb/issues"
   },
-  
   "homepage": "https://github.com/terikon/kendo-pouchdb",
-  
   "dependencies": {
-	"jquery": "*",
-	"pouchdb": "^3.4.0",
-	"pouchdb-collate": "^1.2.0"
+    "jquery": "*",
+    "pouchdb": "^3.4.0",
+    "pouchdb-collate": "^1.2.0",
+    "pouchdb-find": "^0.3.4"
   },
-  
   "devDependencies": {
-	"grunt": "^0.4.5",
-	"grunt-contrib-uglify": "^0.9.1",
-	"grunt-contrib-jshint": "^0.11.1",
-	"grunt-contrib-jasmine": "^0.8.2",
-	"underscore": "^1.8.3"
+    "grunt": "^0.4.5",
+    "grunt-contrib-uglify": "^0.9.1",
+    "grunt-contrib-jshint": "^0.11.1",
+    "grunt-contrib-jasmine": "^0.8.2",
+    "underscore": "^1.8.3"
   }
 }
