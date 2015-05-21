@@ -1308,6 +1308,145 @@ describe("kendo-pouchdb", function () {
 
         });
 
+
+        describe("building selector", function () {
+
+            beforeEach(function () {
+                datasource = createDataSource("name");
+            });
+
+            describe("empty filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._filterToSelector(filter);
+                });
+
+                it("should return null", function () {
+                    expect(selector).toBeNull();
+                });
+
+            });
+
+            describe("simple filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    datasource.filter({ field: "passport", operator: "eq", value: 123 });
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._filterToSelector(filter);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$and": [
+                            {
+                                "passport": {
+                                    "$eq": 123
+                                }
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+            describe("complex filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    datasource.filter({
+                        logic: "or",
+                        filters: [
+                            { field: "name", operator: "eq", value: "Vasya" },
+                            { field: "passport", operator: "eq", value: 234 }
+                        ]
+                    });
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._filterToSelector(filter);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$or": [
+                            {
+                                "name": {
+                                    "$eq": "Vasya"
+                                }
+                            },
+                            {
+                                "passport": {
+                                    "$eq": 234
+                                }
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+            describe("nested filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    datasource.filter({
+                        logic: "or",
+                        filters: [
+                            { field: "name", operator: "eq", value: "Vasya" },
+                            { field: "passport", operator: "eq", value: 234 },
+                            {
+                                logic: "and",
+                                filters: [
+                                    { field: "name", operator: "eq", value: "Petya" },
+                                    { field: "passport", operator: "eq", value: 456 }
+                                ]
+                            }
+                        ]
+                    });
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._filterToSelector(filter);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$or": [
+                            {
+                                "name": {
+                                    "$eq": "Vasya"
+                                }
+                            },
+                            {
+                                "passport": {
+                                    "$eq": 234
+                                }
+                            }, {
+                                "$and": [
+                                    {
+                                        "name": {
+                                            "$eq": "Petya"
+                                        }
+                                    },
+                                    {
+                                        "passport": {
+                                            "$eq": 456
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+
+        });
+
     });
 
 });

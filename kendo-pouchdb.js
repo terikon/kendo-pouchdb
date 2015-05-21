@@ -144,6 +144,9 @@
                 var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions),
                     queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
 
+                //TODO: create index (db.createIndex) if needed, calculate fields for it
+                //TODO: use db.find to filter (selector), sort and page (with limit and skip).
+
                 countDocsToSubtract().then(function (totalRowsToSubtract) {
                         return queryMethod.call(that.db, queryOptions)
                             .then(function (response) {
@@ -187,6 +190,7 @@
             //operation: function(data), called on this.
             _crud: function (type, data, options, operation) {
                 var that = this,
+                    //TODO: replace deferred with revealing constructor pattern, as shown here: http://pouchdb.com/2015/05/18/we-have-a-problem-with-promises.html 
                     deferred = new $.Deferred(),
                     crudPromise = deferred.promise(),
                     resolveCrudDeferred = function () {
@@ -274,22 +278,7 @@
             },
 
             _validateFilter: function (filter, sort) {
-                if (!filter || filter.filters.length === 0) {
-                    return;
-                }
-
-                var filters = filter.filters;
-
-                if (filters.length > 1) {
-                    throw new Error("array of filters is currently not supported");
-                }
-
-                var filterField = filters[0].field,
-                    sortField = sort && sort.length > 0 ? sort[0].field : this.idField;
-
-                if (sortField != filterField) {
-                    throw new Error("filtering by field and then sorting by another field is not supported");
-                }
+                //TODO: validate what is possible with db.filter().
             },
 
             _getFilterQueryOptions: function (filter) {
@@ -316,6 +305,69 @@
                     return { startkey: filterValue };
                 }
                 return undefined;
+            },
+
+            //returns selector configuration object to use with db.find()
+            _filterToSelector: function (filter, sort) {
+                filter = filter || {};
+                var that = this,
+                    result = {},
+                    logic = filter.logic || "and",
+                    filters = filter.filters || [],
+                    combinationOperator = logic === "and" ? "$and" : "$or",
+                    conditions = [],
+                    convertOperator = function (operator) {
+                        switch (operator) {
+                        case "eq":
+                            return "$eq";
+                        case "neq":
+                            return "$ne";
+                        case "lt":
+                            return "$lt";
+                        case "lte":
+                            return "$lte";
+                        case "gt":
+                            return "$gt";
+                        case "gte":
+                            return "$gte";
+                        //case "startswith":
+                        //    return "";//TODO: use $regex
+                        //case "endswith":
+                        //    return "";//TODO: use $regex
+                        //case "contains":
+                        //    return "";//TODO: use $regex
+                        default:
+                            throw new Error(kendo.format("Operator {0} is not supported by kendo-pouchdb", operator));
+                        }
+                    };
+
+                $.each(filters, function (index, filter) {
+                    var field = filter.field,
+                        value = filter.value,
+                        operator,
+                        condition,
+                        argument;
+
+                    if (filter.filters) {
+                        condition = that._filterToSelector(filter, sort);
+                    } else {
+                        condition = {};
+                        operator = convertOperator(filter.operator);
+                        argument = {};
+                        argument[operator] = value;
+                        condition[field] = argument;
+                    }
+
+                    conditions.push(condition);
+                });
+
+                if (conditions.length === 0) {
+                    return null;
+                }
+
+                result[combinationOperator] = conditions;
+
+                return result;
             }
 
         });
