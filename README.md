@@ -205,6 +205,29 @@ Filtering is limited.
 
 TODO
 
+# Find plugin
+
+Will use [pouchdb-find](<https://github.com/nolanlawson/pouchdb-find>) plugin. Filters and sorting can be as complex as pouchdb-find supports.
+
+Indexes should be defined beforehand, or query will fail.
+
+```js
+var dataSource = new kendo.data.PouchableDataSource({
+    type: "pouchdb",
+    filter: { field: "series", operator: "eq", value: "Mario" },
+    sort: [ { field: "series", dir: "desc"}, { field: "debut", dir: "desc"} ],
+    transport: {
+        pouchdb: {
+            db: db,
+            queryPlugin: "pouchdb-find", //queryPlugin is mapreduce by default
+            idField: "_id"
+        }
+    });
+```
+defaultView cannot be used in this mode.
+
+fieldViews cannot be used in this mode.
+
 # Use with Couchbase Mobile
 
 For POC project that binds Kendo Grid with [Couchbase Mobile](<http://www.couchbase.com/nosql-databases/couchbase-mobile>),
