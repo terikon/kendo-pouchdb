@@ -160,7 +160,7 @@ describe("kendo-pouchdb", function () {
                     var createDatasource = function () {
                         createDatasourceForModel(Model);
                     };
-                    expect(createDatasource).toThrowError(/should be "_id"/); //TODO: specify what error
+                    expect(createDatasource).toThrowError(/should be "_id"/);
                 });
 
             });
@@ -180,6 +180,55 @@ describe("kendo-pouchdb", function () {
                         createDatasourceForModel(Model);
                     };
                     expect(createDatasource).not.toThrowError();
+                });
+
+            });
+
+        });
+
+        describe("queryPlugin", function () {
+
+            var createDatasource = function (queryPlugin) {
+                datasource = new kendo.data.PouchableDataSource({
+                    type: "pouchdb",
+
+                    schema: {
+                        model: {
+                            id: "_id",
+
+                            fields: {
+                                name: { type: "string" }
+                            }
+                        }
+                    },
+
+                    transport: {
+                        pouchdb: {
+                            db: db,
+                            idField: "myId",
+                            queryPlugin: queryPlugin
+                        }
+                    }
+
+                });
+            };
+
+            describe("incorrect queryPlugin provided", function () {
+
+                it("should throw error", function () {
+                    expect(function () {
+                        createDatasource("incorrect_plugin");
+                    }).toThrowError(/not supported as queryPlugin/);
+                });
+
+            });
+
+            describe("correct queryPlugin provided", function () {
+
+                it("should not throw error", function () {
+                    expect(function () {
+                        createDatasource("pouchdb-find");
+                    }).not.toThrowError();
                 });
 
             });
@@ -488,7 +537,7 @@ describe("kendo-pouchdb", function () {
         var datasource,
             pushSpy,
             changeSpy,
-            createDataSource = function (idColumn, fieldViews, defaultView) {
+            createDataSource = function (idColumn, fieldViews, defaultView, queryPlugin) {
                 return new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
@@ -506,6 +555,7 @@ describe("kendo-pouchdb", function () {
                         pouchdb: {
                             db: db,
                             idField: idColumn,
+                            queryPlugin: queryPlugin,
                             defaultView: defaultView,
                             fieldViews: fieldViews
                         }
@@ -1304,6 +1354,225 @@ describe("kendo-pouchdb", function () {
 
             afterEach(function () {
                 errorSpy.dispose();
+            });
+
+        });
+
+
+        describe("building find selector", function () {
+
+            beforeEach(function () {
+                datasource = createDataSource("name", undefined, undefined, "pouchdb-find");
+            });
+
+            describe("empty filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                });
+
+                it("should return undefined", function () {
+                    expect(selector).toBeUndefined();
+                });
+
+            });
+
+            describe("simple filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    datasource.filter({ field: "passport", operator: "eq", value: 123 });
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$and": [
+                            {
+                                "passport": {
+                                    "$eq": 123
+                                }
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+            describe("complex filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    datasource.filter({
+                        logic: "or",
+                        filters: [
+                            { field: "name", operator: "eq", value: "Vasya" },
+                            { field: "passport", operator: "eq", value: 234 }
+                        ]
+                    });
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$or": [
+                            {
+                                "name": {
+                                    "$eq": "Vasya"
+                                }
+                            },
+                            {
+                                "passport": {
+                                    "$eq": 234
+                                }
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+            describe("nested filter, no sort", function () {
+
+                var filter, selector;
+
+                beforeEach(function () {
+                    datasource.filter({
+                        logic: "or",
+                        filters: [
+                            { field: "name", operator: "eq", value: "Vasya" },
+                            { field: "passport", operator: "eq", value: 234 },
+                            {
+                                logic: "and",
+                                filters: [
+                                    { field: "name", operator: "eq", value: "Petya" },
+                                    { field: "passport", operator: "eq", value: 456 }
+                                ]
+                            }
+                        ]
+                    });
+                    filter = datasource.filter();
+                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$or": [
+                            {
+                                "name": {
+                                    "$eq": "Vasya"
+                                }
+                            },
+                            {
+                                "passport": {
+                                    "$eq": 234
+                                }
+                            }, {
+                                "$and": [
+                                    {
+                                        "name": {
+                                            "$eq": "Petya"
+                                        }
+                                    },
+                                    {
+                                        "passport": {
+                                            "$eq": 456
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+        });
+
+        describe("building find sort", function () {
+
+            beforeEach(function () {
+                datasource = createDataSource("name", undefined, undefined, "pouchdb-find");
+            });
+
+            describe("no sort", function () {
+
+                var kendoSort, pouchSort;
+
+                beforeEach(function () {
+                    kendoSort = datasource.sort();
+                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                });
+
+                it("should return undefined", function () {
+                    expect(pouchSort).toBeUndefined();
+                });
+
+            });
+
+            describe("one field sort", function () {
+
+                var kendoSort, pouchSort;
+
+                beforeEach(function () {
+                    datasource.sort({ field: "name", dir: "asc" });
+                    kendoSort = datasource.sort();
+                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                });
+
+                it("should return appropriate sort configuration", function () {
+                    expect(pouchSort).toEqual([
+                        { "name": "asc" }
+                    ]);
+                });
+
+            });
+
+            describe("one field sort desc", function () {
+
+                var kendoSort, pouchSort;
+
+                beforeEach(function () {
+                    datasource.sort({ field: "name", dir: "desc" });
+                    kendoSort = datasource.sort();
+                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                });
+
+                it("should return appropriate sort configuration", function () {
+                    expect(pouchSort).toEqual([
+                        { "name": "desc" }
+                    ]);
+                });
+
+            });
+
+            describe("multiple field sort", function () {
+
+                var kendoSort, pouchSort;
+
+                beforeEach(function () {
+                    datasource.sort([
+                        { field: "name", dir: "asc" },
+                        { field: "passport", dir: "desc" }
+                    ]);
+                    kendoSort = datasource.sort();
+                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                });
+
+                it("should return appropriate sort configuration", function () {
+                    expect(pouchSort).toEqual([
+                        { "name": "asc" },
+                        { "passport": "desc" }
+                    ]);
+                });
+
             });
 
         });
