@@ -27,7 +27,7 @@
                         idField = pouchdb.idField,
                         queryPlugin = pouchdb.queryPlugin || queryPlugins.MAPREDUCE,
                         defaultView = pouchdb.defaultView,
-                        fieldViews = pouchdb.fieldViews || {};
+                        fieldViews = pouchdb.fieldViews;
 
                     if (!db) {
                         throw new Error('The "db" option must be set.');
@@ -46,27 +46,22 @@
                         throw new Error(kendo.format("{0} is not supported as queryPlugin", queryPlugin));
                     }
 
+                    if (queryPlugin === queryPlugins.POUCHDBFIND && defaultView) {
+                        throw new Error(kendo.format("defaultView cannot be used when queryPlugin is '{0}'", queryPlugin));
+                    }
+
+                    if (queryPlugin === queryPlugins.POUCHDBFIND && fieldViews) {
+                        throw new Error(kendo.format("fieldViews cannot be used when queryPlugin is '{0}'", queryPlugin));
+                    }
+
                     this.db = db;
                     this.idField = idField;
                     this.queryPlugin = queryPlugin;
                     this.defaultView = defaultView;
-                    this.fieldViews = fieldViews;
+                    this.fieldViews = fieldViews || {};
                     this.dataSource = options.data.dataSource; //we initialize one in PouchableDataSource.init().
 
-                    this._initializeReadMethod();
-
                     kendo.data.RemoteTransport.fn.init.call(this, options);
-                },
-
-                _initializeReadMethod: function () {
-                    switch (this.queryPlugin) {
-                    case queryPlugins.MAPREDUCE:
-                        this._read = this._readWithMapReduce;
-                        break;
-                    case queryPlugins.POUCHDBFIND:
-                        this._read = this._readWithPouchdbFind;
-                        break;
-                    }
                 },
 
                 push: function (callbacks) {
@@ -130,24 +125,36 @@
                 },
 
                 read: function (options) {
-                    return this._read(options);
-                },
-
-                _readWithMapReduce: function (options) {
-                    //options.data contain filter,group,page,sort info
+                    //options.data contain filter,group,page and sort info
 
                     var that = this,
-                        fieldViewAndDir = that._getFieldViewAndDirForSort(options.data.sort),
-                        useQuery = !!fieldViewAndDir.fieldView,
+                        filter = options.data.filter,
+                        sort = options.data.sort,
+                        mapreduce = that.queryPlugin === queryPlugins.MAPREDUCE,
+                        pouchdbfind = that.queryPlugin === queryPlugins.POUCHDBFIND,
+                        fieldViewAndDir = mapreduce ? that._getFieldViewAndDirForSort(sort) : undefined,
+                        findSelector = pouchdbfind ? that._kendoFilterToFindSelector(filter, sort) : undefined,
+                        findSort = pouchdbfind ? that._kendoSortToFindSort(sort) : undefined,
+                        filterGoodForAllDocs = that._isEmptyFilter(filter) || (mapreduce && that._isIdRangeFilter(filter)),
+                        sortGoodForAllDocs = that._isEmptySort(sort) || that._isIdSort(sort),
+                        useAllDocs = filterGoodForAllDocs && sortGoodForAllDocs && !that.defaultView && !findSelector,
+                        getQueryMethodByQueryPlugin = function () {
+                            if (mapreduce) {
+                                return that.db.query.bind(that.db, fieldViewAndDir.fieldView);
+                            } else if (pouchdbfind) {
+                                return that.db.find;
+                            }
+                            throw new Error(kendo.format("queryPlugin {0} is not supported", that.queryPlugin));
+                        },
+                        queryMethod = useAllDocs ? that.db.allDocs : getQueryMethodByQueryPlugin(),
                         applyFilter,
                         applyPaging,
-                        queryMethod = useQuery ? that.db.query.bind(that.db, fieldViewAndDir.fieldView) : that.db.allDocs,
                         skip,
                         limit = options.data.pageSize,
                         page = options.data.page,
                         //returns total number of design docs in database
                         countDocsToSubtract = function () {
-                            if (useQuery || applyFilter) { //When allDocs is used, design documents are returned and needed to be subtracted
+                            if (!useAllDocs || applyFilter) { //When allDocs is used, design documents are returned and needed to be subtracted
                                 return PouchDB.utils.Promise.resolve(0);
                             }
                             return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
@@ -157,7 +164,7 @@
                         filterQueryOptions;
 
                     that._validateFilter(options.data.filter, options.data.sort);
-                    filterQueryOptions = this._getFilterQueryOptions(options.data.filter);
+                    filterQueryOptions = (useAllDocs || mapreduce) ? this._getFilterQueryOptions(options.data.filter) : undefined;
                     applyFilter = !!filterQueryOptions;
 
                     if (limit !== undefined) {
@@ -170,50 +177,61 @@
                     }
                     applyPaging = (skip !== undefined || limit !== undefined);
 
-                    var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions),
-                        queryOptions = $.extend({ include_docs: true, descending: fieldViewAndDir.descending, skip: skip, limit: limit }, filterQueryOptions);
-
-                    //TODO: create index (db.createIndex) if needed, calculate fields for it
-                    //TODO: use db.find to filter (selector), sort and page (with limit and skip).
+                    var descending = fieldViewAndDir ? fieldViewAndDir.descending : undefined,
+                        include_docs = (useAllDocs || mapreduce) ? true : undefined,
+                        queryOptions = $.extend({
+                            include_docs: include_docs,
+                            descending: descending,
+                            skip: skip,
+                            limit: limit,
+                            selector: findSelector,
+                            sort: findSort
+                        }, filterQueryOptions),
+                        //calculates total rows and sets total_rows on response accordingly
+                        applyTotalRowsOnResponse = function (response, totalRowsToSubtract) {
+                            if (useAllDocs && !applyFilter) {
+                                response.total_rows -= totalRowsToSubtract; //subtracts design documents from total_rows
+                                return response;
+                            } else if (pouchdbfind) {
+                                //TODO: how to calculate total when db.find() applied?    
+                                response.total_rows = 0;
+                                return response;
+                            } else if (mapreduce && !applyPaging) {
+                                response.total_rows = 0;
+                                $.each(response.rows, function () {
+                                    if (this.doc._id.indexOf("_design/") !== 0) {
+                                        response.total_rows += 1;
+                                    }
+                                });
+                                return response;
+                            } else if (mapreduce) {
+                                var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions);
+                                return queryMethod.call(that.db, totalQueryOptions)
+                                    .then(function (totalResult) {
+                                        if (useAllDocs) {
+                                            response.total_rows = totalResult.rows.length;
+                                            return response;
+                                        }
+                                        response.total_rows = totalResult.rows.length; //strangely, even when reduce:"_count" used, rows are still returned.
+                                        return response;
+                                    });
+                            }
+                            throw new Error(kendo.format("Does not know how to calculate total for queryPlugin '{0}'", that.queryPlugin));
+                        };
 
                     countDocsToSubtract().then(function (totalRowsToSubtract) {
                             return queryMethod.call(that.db, queryOptions)
                                 .then(function (response) {
-                                    if (!useQuery && !applyFilter) {
-                                        response.total_rows -= totalRowsToSubtract; //subtracts design documents from total_rows
-                                        return response;
-                                    } else if (!applyPaging) {
-                                        response.total_rows = 0;
-                                        $.each(response.rows, function () {
-                                            if (this.doc._id.indexOf("_design/") !== 0) {
-                                                response.total_rows += 1;
-                                            }
-                                        });
-                                        return response;
-                                    } else {
-                                        return queryMethod.call(that.db, totalQueryOptions)
-                                            .then(function (totalResult) {
-                                                if (!useQuery) {
-                                                    response.total_rows = totalResult.rows.length;
-                                                    return response;
-                                                }
-                                                response.total_rows = totalResult.rows.length; //strangely, even when reduce:"_count" used, rows are still returned.
-                                                return response;
-                                            });
-                                    }
+                                    return applyTotalRowsOnResponse(response, totalRowsToSubtract);
                                 });
                         })
                         .then(function (response) {
                             options.success(response);
                         })
                         .catch(function (err) {
-                            options.error([], err.status, err);
+                            options.error(err, err.status, err);
                         });
 
-                },
-
-                _readWithPouchdbFind: function (options) {
-                    //TODO
                 },
 
                 //promises for crud async operation, being removed as resolve.
@@ -245,7 +263,7 @@
                                 //TODO: conflict resolution
                                 console.log(kendo.format("kendo-pouchdb: conflict occured for {0}: {1}", type, err));
                             }
-                            options.error([], err.status, err); //TODO: first parameter seems to be err
+                            options.error(err, err.status, err); //TODO: first parameter seems to be err
                             resolveCrudDeferred();
                         });
                 },
@@ -285,24 +303,56 @@
 
                 },
 
+                _isEmptyFilter: function (filter) {
+                    return !filter || !filter.filters || filter.filters.length === 0;
+                },
+
+                _isIdRangeFilter: function (filter) {
+                    if (!filter || filter.filters.length !== 1) {
+                        return false;
+                    }
+                    var filterField = filter.filters[0].field,
+                        filterOperator = filter.filters[0].operator;
+
+                    if (filterField !== "_id" && filterField !== this.idField) {
+                        return false;
+                    }
+
+                    return ["eq", "neq", "lt", "lte", "gt", "gte"].indexOf(filterOperator) >= 0;
+                },
+
+                _isEmptySort: function (sort) {
+                    return !sort || sort.length === 0;
+                },
+
+                _isIdSort: function (sort) {
+                    if (!sort || sort.length !== 1) {
+                        return false;
+                    }
+                    var field = sort[0].field;
+                    return field === "_id" || field === this.idField;
+                },
+
                 //Returns {fieldView:string, descending:bool}.
                 //For default index, returns {descending:bool}.
                 _getFieldViewAndDirForSort: function (sort) {
                     var field, descending, fieldView, defaultView = this.defaultView;
 
-                    if (!sort || sort.length === 0) {
+                    if (this._isEmptySort(sort)) {
                         return { fieldView: defaultView, descending: false };
                     }
+
                     if (sort.length > 1) {
                         throw new Error("Sorting by multiple fields is not supported with views, use find");
                     }
-                    field = sort[0].field;
+
                     descending = sort[0].dir && sort[0].dir === "desc";
 
-                    if (field === "_id" || field === this.idField) {
+                    if (this._isIdSort(sort)) {
                         return { fieldView: defaultView, descending: descending };
                     }
 
+                    field = sort[0].field;
                     fieldView = this.fieldViews[field];
 
                     if (!fieldView) {
@@ -336,8 +386,12 @@
                 },
 
                 _getFilterQueryOptions: function (filter) {
-                    if (!filter || filter.filters.length === 0) {
+                    if (this._isEmptyFilter(filter)) {
                         return undefined;
+                    }
+
+                    if (filter.filters.length !== 1) {
+                        throw new Error("_getFilterQueryOptions currently supports only one filter");
                     }
 
                     var filterField = filter.filters[0].field,
@@ -361,8 +415,39 @@
                     return undefined;
                 },
 
+                //uses _id field if filter by idField specified
+                _fieldToFindField: function (field) {
+                    return (field === this.idField) ? "_id" : field;
+                },
+
+                //if idField that used not as _id, make indexable string from value, as it stored as indexable string.
+                _valueToIndexable: function (field, value) {
+                    if (field !== "_id" && field === this.idField) {
+                        return pouchCollate.toIndexableString(value);
+                    }
+                    return value;
+                },
+
                 //returns selector configuration object to use with db.find()
                 _kendoFilterToFindSelector: function (filter, sort) {
+                    var that = this;
+                    if (this._isEmptyFilter(filter) && sort && sort.length > 0) {
+                        //Edge case when sort is given but filter is not. In such case selector still should be provided, so we'll use $exists operator.
+                        //Pay attention that such sort will filter out rows with null values
+                        return {
+                            $and: $.map(sort, function (sort) {
+                                var field = that._fieldToFindField(sort.field),
+                                    expression = {};
+                                expression[field] = { "$exists": true };
+                                return expression;
+                            })
+                        };
+                    }
+                    return this._kendoFilterToFindSelectorInternal(filter, sort);
+                },
+
+                //_kendoFilterToFindSelector implementation
+                _kendoFilterToFindSelectorInternal: function (filter, sort) {
                     filter = filter || {};
                     var that = this,
                         result = {},
@@ -396,8 +481,8 @@
                         };
 
                     $.each(filters, function (index, filter) {
-                        var field = filter.field,
-                            value = filter.value,
+                        var field = that._fieldToFindField(filter.field),
+                            value = that._valueToIndexable(filter.field, filter.value),
                             operator,
                             condition,
                             argument;
@@ -425,12 +510,13 @@
                 },
 
                 _kendoSortToFindSort: function (sort) {
-                    if (!sort || sort.length === 0) {
+                    var that = this;
+                    if (this._isEmptySort(sort)) {
                         return undefined;
                     }
                     return $.map(sort, function (value) {
                         var order = {};
-                        order[value.field] = value.dir === "desc" ? "desc" : "asc";
+                        order[that._fieldToFindField(value.field)] = value.dir === "desc" ? "desc" : "asc";
                         return order;
                     });
                 }
@@ -441,6 +527,7 @@
             type: "json",
             data: function (data) {
                 if (data.rows) {
+                    //mapreduce mode
                     var docs = $.map(data.rows, function (row) {
                         if (row.doc._id.indexOf("_design/") !== 0) { //ignore design documents
                             return row.doc;
@@ -448,6 +535,9 @@
                         return undefined;
                     });
                     return docs;
+                } else if (data.docs) {
+                    //pouchdb-find mode
+                    return data.docs;
                 }
                 return data;
             },

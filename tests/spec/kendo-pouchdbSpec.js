@@ -2,7 +2,7 @@
 
 describe("kendo-pouchdb", function () {
 
-    var db;
+    var db, queryPlugins = ["mapreduce", "pouchdb-find"];
 
     beforeEach(function (done) {
         new PouchDB('testdb')
@@ -19,6 +19,14 @@ describe("kendo-pouchdb", function () {
                 console.log("PouchDB database creation error:" + error.message);
             });
     });
+
+    var createFindIndex = function (fields) {
+        return db.createIndex({
+            index: {
+                fields: fields
+            }
+        });
+    };
 
     describe("original methods of kendo.data.DataSource", function () {
 
@@ -237,297 +245,302 @@ describe("kendo-pouchdb", function () {
 
     });
 
-    describe("CRUD operations", function () {
+    $.each(queryPlugins, function (__, queryPlugin) {
 
-        var datasource, pushSpy, changeSpy;
+        describe("CRUD operations with " + queryPlugin, function () {
 
-        beforeEach(function () {
+            var datasource, pushSpy, changeSpy;
 
-            datasource = new kendo.data.PouchableDataSource({
-                type: "pouchdb",
+            beforeEach(function () {
 
-                schema: {
-                    model: {
-                        fields: {
-                            "myId": { type: "number" },
-                            "name": { type: "string" },
-                            "age": { type: "number" },
-                            "birthDate": { type: "date" },
-                            "male": { type: "boolean" }
+                datasource = new kendo.data.PouchableDataSource({
+                    type: "pouchdb",
+
+                    schema: {
+                        model: {
+                            fields: {
+                                "myId": { type: "number" },
+                                "name": { type: "string" },
+                                "age": { type: "number" },
+                                "birthDate": { type: "date" },
+                                "male": { type: "boolean" }
+                            }
+                        }
+                    },
+
+                    transport: {
+                        pouchdb: {
+                            db: db,
+                            idField: "myId",
+                            queryPlugin: queryPlugin
                         }
                     }
-                },
 
-                transport: {
-                    pouchdb: {
-                        db: db,
-                        idField: "myId"
-                    }
-                }
+                });
+
+                pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                changeSpy = testHelper.spyKendoEvent(datasource, "change");
 
             });
 
-            pushSpy = testHelper.spyKendoEvent(datasource, "push");
-            changeSpy = testHelper.spyKendoEvent(datasource, "change");
+            describe("push CRUD operations", function () {
 
-        });
-
-        describe("push CRUD operations", function () {
-
-            var doc;
-
-            beforeEach(function (done) {
-                datasource.fetch().then(done);
-
-                doc = {
-                    _id: pouchCollate.toIndexableString(3),
-                    myId: 3,
-                    name: "Vasya",
-                    age: 5,
-                    birthDate: new Date(2015, 4, 1),
-                    male: true
-                };
-            });
-
-            describe("putting a document to PouchDB", function () {
+                var doc;
 
                 beforeEach(function (done) {
-                    var dbChangePromise = testHelper.waitForDbChanges(db, 1),
-                        putPromise = db.put(doc);
+                    datasource.fetch().then(done).fail(done.fail);
 
-                    $.when(dbChangePromise, putPromise).then(done);
-                });
-
-                it("should push create to datasourse", function () {
-                    expect(pushSpy.events.length).toEqual(1);
-                    expect(pushSpy.events[0].e.type).toEqual("create");
-                    expect(pushSpy.events[0].e.items.length).toEqual(1);
-                    var item = pushSpy.events[0].e.items[0];
-                    expect(item._id).toBe(pouchCollate.toIndexableString(3));
-                    expect(item.myId).toBe(3);
-                    expect(item.age).toBe(doc.age);
-                    expect(item.birthDate).toEqual(doc.birthDate);
-                });
-
-                describe("and updating in PouchDb", function () {
-
-                    beforeEach(function (done) {
-                        pushSpy.reset();
-                        db.get(doc._id).then(function (doc2Update) {
-
-                            doc2Update.age = 10;
-
-                            var dbChangePromise = testHelper.waitForDbChanges(db, 1),
-                                putPromise = db.put(doc2Update);
-
-                            $.when(dbChangePromise, putPromise).then(done);
-                        });
-
-                    });
-
-                    it("should push update to datasourse", function () {
-                        expect(pushSpy.events.length).toEqual(1);
-                        expect(pushSpy.events[0].e.type).toEqual("update");
-                        expect(pushSpy.events[0].e.items.length).toEqual(1);
-                        var item = pushSpy.events[0].e.items[0];
-                        expect(item._id).toBe(pouchCollate.toIndexableString(3));
-                        expect(item.age).toBe(10);
-                    });
-
-                });
-
-                describe("and deleting in PouchDb", function () {
-
-                    beforeEach(function (done) {
-                        pushSpy.reset();
-                        db.get(doc._id).then(function (doc2Delete) {
-
-                            doc2Delete._deleted = true;
-
-                            var dbChangePromise = testHelper.waitForDbChanges(db, 1),
-                                putPromise = db.put(doc2Delete);
-
-                            $.when(dbChangePromise, putPromise).then(done);
-                        });
-
-                    });
-
-                    it("should push destroy to datasourse", function () {
-                        expect(pushSpy.events.length).toEqual(1);
-                        expect(pushSpy.events[0].e.type).toEqual("destroy");
-                        expect(pushSpy.events[0].e.items.length).toEqual(1);
-                        var item = pushSpy.events[0].e.items[0];
-                        expect(item._id).toBe(pouchCollate.toIndexableString(3));
-                    });
-
-                });
-
-            });
-
-        });
-
-        describe("datasource CRUD operations", function () {
-
-            var createDatasourceDoc = function (id, name) {
-                    return {
-                        myId: id,
-                        //here _id should be undefined
-                        name: name,
+                    doc = {
+                        _id: pouchCollate.toIndexableString(3),
+                        myId: 3,
+                        name: "Vasya",
                         age: 5,
                         birthDate: new Date(2015, 4, 1),
                         male: true
                     };
-                },
-                createDbDoc = function (id, name) {
-                    var doc = createDatasourceDoc(id, name);
-                    doc._id = pouchCollate.toIndexableString(id);
-                    return doc;
-                };
+                });
 
-            beforeEach(function (done) {
-                var docs = _.map(_.range(10), function (num) {
-                        return createDbDoc(num, "Vasya" + num);
-                    }),
+                describe("putting a document to PouchDB", function () {
 
-                    dbChangePromise = testHelper.waitForDbChanges(db, docs.length),
-                    bulkDocsPromise = db.bulkDocs(docs);
+                    beforeEach(function (done) {
+                        var dbChangePromise = testHelper.waitForDbChanges(db, 1),
+                            putPromise = db.put(doc);
 
-                $.when(bulkDocsPromise, dbChangePromise).then(done);
+                        $.when(dbChangePromise, putPromise).then(done).fail(done.fail);
+                    });
+
+                    it("should push create to datasourse", function () {
+                        expect(pushSpy.events.length).toEqual(1);
+                        expect(pushSpy.events[0].e.type).toEqual("create");
+                        expect(pushSpy.events[0].e.items.length).toEqual(1);
+                        var item = pushSpy.events[0].e.items[0];
+                        expect(item._id).toBe(pouchCollate.toIndexableString(3));
+                        expect(item.myId).toBe(3);
+                        expect(item.age).toBe(doc.age);
+                        expect(item.birthDate).toEqual(doc.birthDate);
+                    });
+
+                    describe("and updating in PouchDb", function () {
+
+                        beforeEach(function (done) {
+                            pushSpy.reset();
+                            db.get(doc._id).then(function (doc2Update) {
+
+                                doc2Update.age = 10;
+
+                                var dbChangePromise = testHelper.waitForDbChanges(db, 1),
+                                    putPromise = db.put(doc2Update);
+
+                                $.when(dbChangePromise, putPromise).then(done).fail(done.fail);
+                            });
+
+                        });
+
+                        it("should push update to datasourse", function () {
+                            expect(pushSpy.events.length).toEqual(1);
+                            expect(pushSpy.events[0].e.type).toEqual("update");
+                            expect(pushSpy.events[0].e.items.length).toEqual(1);
+                            var item = pushSpy.events[0].e.items[0];
+                            expect(item._id).toBe(pouchCollate.toIndexableString(3));
+                            expect(item.age).toBe(10);
+                        });
+
+                    });
+
+                    describe("and deleting in PouchDb", function () {
+
+                        beforeEach(function (done) {
+                            pushSpy.reset();
+                            db.get(doc._id).then(function (doc2Delete) {
+
+                                doc2Delete._deleted = true;
+
+                                var dbChangePromise = testHelper.waitForDbChanges(db, 1),
+                                    putPromise = db.put(doc2Delete);
+
+                                $.when(dbChangePromise, putPromise).then(done).fail(done.fail);
+                            });
+
+                        });
+
+                        it("should push destroy to datasourse", function () {
+                            expect(pushSpy.events.length).toEqual(1);
+                            expect(pushSpy.events[0].e.type).toEqual("destroy");
+                            expect(pushSpy.events[0].e.items.length).toEqual(1);
+                            var item = pushSpy.events[0].e.items[0];
+                            expect(item._id).toBe(pouchCollate.toIndexableString(3));
+                        });
+
+                    });
+
+                });
+
             });
 
-            describe("fetching data from PouchDB with 10 rows", function () {
+            describe("datasource CRUD operations", function () {
+
+                var createDatasourceDoc = function (id, name) {
+                        return {
+                            myId: id,
+                            //here _id should be undefined
+                            name: name,
+                            age: 5,
+                            birthDate: new Date(2015, 4, 1),
+                            male: true
+                        };
+                    },
+                    createDbDoc = function (id, name) {
+                        var doc = createDatasourceDoc(id, name);
+                        doc._id = pouchCollate.toIndexableString(id);
+                        return doc;
+                    };
 
                 beforeEach(function (done) {
-                    datasource.fetch().then(done);
+                    var docs = _.map(_.range(10), function (num) {
+                            return createDbDoc(num, "Vasya" + num);
+                        }),
+
+                        dbChangePromise = testHelper.waitForDbChanges(db, docs.length),
+                        bulkDocsPromise = db.bulkDocs(docs);
+
+                    $.when(bulkDocsPromise, dbChangePromise).then(done).fail(done.fail);
                 });
 
-                it("should fetch 10 rows", function () {
-                    expect(datasource.total()).toEqual(10);
-                    expect(datasource.at(0)._id).toBe(pouchCollate.toIndexableString(0));
-                    expect(datasource.at(0).myId).toBe(0);
-                    expect(datasource.at(0).name).toEqual("Vasya0");
-                });
-
-                describe("and adding a row to datasource", function () {
-
-                    var newDoc;
+                describe("fetching data from PouchDB with 10 rows", function () {
 
                     beforeEach(function (done) {
-                        //For kendo DataSource new row is row which has row.id==row._defaultId. id is set to row.get(row.idField).
-                        newDoc = createDatasourceDoc(100, "Added to datasource");
-
-                        var dbChangePromise = testHelper.waitForDbChanges(db, 1);
-                        pushSpy.reset();
-
-                        datasource.add(newDoc);
-                        var syncPromise = datasource.sync();
-
-                        $.when(dbChangePromise, syncPromise).then(done);
+                        datasource.fetch().then(done).fail(done.fail);
                     });
 
-                    it("should add the row to PouchDB", function (done) {
-                        db.get(pouchCollate.toIndexableString(100)).then(function (doc) {
-                            expect(doc).toBeTruthy();
-                            expect(doc.myId).toBe(100);
-                            done();
-                        }).catch(function (err) {
-                            console.log("ERR:" + err);
+                    it("should fetch 10 rows", function () {
+                        expect(datasource.total()).toEqual(10);
+                        expect(datasource.at(0)._id).toBe(pouchCollate.toIndexableString(0));
+                        expect(datasource.at(0).myId).toBe(0);
+                        expect(datasource.at(0).name).toEqual("Vasya0");
+                    });
+
+                    describe("and adding a row to datasource", function () {
+
+                        var newDoc;
+
+                        beforeEach(function (done) {
+                            //For kendo DataSource new row is row which has row.id==row._defaultId. id is set to row.get(row.idField).
+                            newDoc = createDatasourceDoc(100, "Added to datasource");
+
+                            var dbChangePromise = testHelper.waitForDbChanges(db, 1);
+                            pushSpy.reset();
+
+                            datasource.add(newDoc);
+                            var syncPromise = datasource.sync();
+
+                            $.when(dbChangePromise, syncPromise).then(done).fail(done.fail);
                         });
-                    });
 
-                    it("should not cause push event back to datasource", function () {
-                        expect(pushSpy.events.length).toEqual(0);
-                    });
-
-                    it("should assign _rev to row of datasource", function () {
-                        var newModel = datasource.get(pouchCollate.toIndexableString(100));
-                        expect(newModel._rev).toBeTruthy();
-                    });
-
-                });
-
-                describe("and updating a row to datasource", function () {
-
-                    var kendoRow;
-
-                    beforeEach(function (done) {
-
-                        kendoRow = datasource.get(pouchCollate.toIndexableString(5));
-
-                        var dbChangePromise = testHelper.waitForDbChanges(db, 1);
-                        pushSpy.reset();
-
-                        kendoRow.set('name', "Changed in datasource");
-                        var syncPromise = datasource.sync();
-
-                        $.when(dbChangePromise, syncPromise).then(done);
-                    });
-
-                    it("should update the row in PouchDB", function (done) {
-                        db.get(pouchCollate.toIndexableString(5)).then(function (doc) {
-                            expect(doc.name).toEqual(kendoRow.name);
-                            done();
-                        }).catch(function (err) {
-                            console.log("ERR:" + err);
-                        });
-                    });
-
-                    it("should not cause push event back to datasource", function () {
-                        expect(pushSpy.events.length).toEqual(0);
-                    });
-
-                    it("should update _rev in row of datasource", function (done) {
-                        db.get(pouchCollate.toIndexableString(5)).then(function (doc) {
-                            expect(kendoRow._rev).toEqual(doc._rev);
-                            done();
-                        }).catch(function (err) {
-                            console.log("ERR:" + err);
-                        });
-                    });
-
-                });
-
-                describe("and deleting a row from datasource", function () {
-
-                    var kendoRow;
-
-                    beforeEach(function (done) {
-
-                        kendoRow = datasource.get(pouchCollate.toIndexableString(5));
-
-                        var dbChangePromise = testHelper.waitForDbChanges(db, 1);
-                        pushSpy.reset();
-
-                        datasource.remove(kendoRow);
-                        var syncPromise = datasource.sync();
-
-                        $.when(dbChangePromise, syncPromise).then(done);
-                    });
-
-                    it("should delete the row in PouchDB", function (done) {
-                        db.get(pouchCollate.toIndexableString(5)).catch(function (err) {
-                            if (err.status === 404) {
-                                expect(true).toBe(true); //TODO: How to pass a test in jasmine?
+                        it("should add the row to PouchDB", function (done) {
+                            db.get(pouchCollate.toIndexableString(100)).then(function (doc) {
+                                expect(doc).toBeTruthy();
+                                expect(doc.myId).toBe(100);
                                 done();
-                            } else {
+                            }).catch(function (err) {
                                 console.log("ERR:" + err);
-                            }
+                            });
                         });
+
+                        it("should not cause push event back to datasource", function () {
+                            expect(pushSpy.events.length).toEqual(0);
+                        });
+
+                        it("should assign _rev to row of datasource", function () {
+                            var newModel = datasource.get(pouchCollate.toIndexableString(100));
+                            expect(newModel._rev).toBeTruthy();
+                        });
+
                     });
 
-                    it("should not cause push event back to datasource", function () {
-                        expect(pushSpy.events.length).toEqual(0);
+                    describe("and updating a row to datasource", function () {
+
+                        var kendoRow;
+
+                        beforeEach(function (done) {
+
+                            kendoRow = datasource.get(pouchCollate.toIndexableString(5));
+
+                            var dbChangePromise = testHelper.waitForDbChanges(db, 1);
+                            pushSpy.reset();
+
+                            kendoRow.set('name', "Changed in datasource");
+                            var syncPromise = datasource.sync();
+
+                            $.when(dbChangePromise, syncPromise).then(done).fail(done.fail);
+                        });
+
+                        it("should update the row in PouchDB", function (done) {
+                            db.get(pouchCollate.toIndexableString(5)).then(function (doc) {
+                                expect(doc.name).toEqual(kendoRow.name);
+                                done();
+                            }).catch(function (err) {
+                                console.log("ERR:" + err);
+                            });
+                        });
+
+                        it("should not cause push event back to datasource", function () {
+                            expect(pushSpy.events.length).toEqual(0);
+                        });
+
+                        it("should update _rev in row of datasource", function (done) {
+                            db.get(pouchCollate.toIndexableString(5)).then(function (doc) {
+                                expect(kendoRow._rev).toEqual(doc._rev);
+                                done();
+                            }).catch(function (err) {
+                                console.log("ERR:" + err);
+                            });
+                        });
+
+                    });
+
+                    describe("and deleting a row from datasource", function () {
+
+                        var kendoRow;
+
+                        beforeEach(function (done) {
+
+                            kendoRow = datasource.get(pouchCollate.toIndexableString(5));
+
+                            var dbChangePromise = testHelper.waitForDbChanges(db, 1);
+                            pushSpy.reset();
+
+                            datasource.remove(kendoRow);
+                            var syncPromise = datasource.sync();
+
+                            $.when(dbChangePromise, syncPromise).then(done).fail(done.fail);
+                        });
+
+                        it("should delete the row in PouchDB", function (done) {
+                            db.get(pouchCollate.toIndexableString(5)).catch(function (err) {
+                                if (err.status === 404) {
+                                    expect(true).toBe(true); //TODO: How to pass a test in jasmine?
+                                    done();
+                                } else {
+                                    console.log("ERR:" + err);
+                                }
+                            });
+                        });
+
+                        it("should not cause push event back to datasource", function () {
+                            expect(pushSpy.events.length).toEqual(0);
+                        });
+
                     });
 
                 });
 
             });
 
-        });
+            afterEach(function () {
+                pushSpy.dispose();
+                changeSpy.dispose();
+            });
 
-        afterEach(function () {
-            pushSpy.dispose();
-            changeSpy.dispose();
         });
 
     });
@@ -537,7 +550,7 @@ describe("kendo-pouchdb", function () {
         var datasource,
             pushSpy,
             changeSpy,
-            createDataSource = function (idColumn, fieldViews, defaultView, queryPlugin) {
+            createDataSource = function (idColumn, queryPlugin, fieldViews, defaultView) {
                 return new kendo.data.PouchableDataSource({
                     type: "pouchdb",
 
@@ -576,15 +589,19 @@ describe("kendo-pouchdb", function () {
                 doc._id = pouchCollate.toIndexableString(doc[idField]);
                 return doc;
             },
-            addIndex = function (indexName, viewName, field) {
-                var ddoc = {
-                    _id: '_design/' + indexName,
-                    views: {}
-                };
-                ddoc.views[viewName] = {
-                    map: "function (doc) { emit(doc['" + field + "']); }"
-                };
-                return db.put(ddoc);
+            addIndex = function (queryPlugin, indexName, viewName, field) {
+                if (queryPlugin === "mapreduce") {
+                    var ddoc = {
+                        _id: '_design/' + indexName,
+                        views: {}
+                    };
+                    ddoc.views[viewName] = {
+                        map: "function (doc) { emit(doc['" + field + "']); }"
+                    };
+                    return db.put(ddoc);
+                } else if (queryPlugin === "pouchdb-find") {
+                    return createFindIndex([field]);
+                }
             };
 
         describe("collation", function () {
@@ -616,7 +633,7 @@ describe("kendo-pouchdb", function () {
 
                         var syncPromise = datasource.sync();
 
-                        $.when(dbChangePromise, syncPromise).then(done);
+                        $.when(dbChangePromise, syncPromise).then(done).fail(done.fail);
                     });
 
                     it("should add rows to PouchDB sorted by id", function (done) {
@@ -668,7 +685,7 @@ describe("kendo-pouchdb", function () {
 
                         var syncPromise = datasource.sync();
 
-                        $.when(dbChangePromise, syncPromise).then(done);
+                        $.when(dbChangePromise, syncPromise).then(done).fail(done.fail);
                     });
 
                     it("should add rows to PouchDB sorted by id", function (done) {
@@ -713,388 +730,423 @@ describe("kendo-pouchdb", function () {
                 return $.when(dbChangePromise, syncRefetchPromise);
             };
 
-            describe("sorting", function () {
+            $.each(queryPlugins, function (__, queryPlugin) {
 
-                describe("if sorting by field without index", function () {
+                describe("sorting with " + queryPlugin, function () {
 
-                    var sort = function () { datasource.sort({ field: "name", dir: "asc" }); };
+                    if (queryPlugin === "mapreduce") {
 
-                    beforeEach(function () {
-                        datasource = createDataSource("passport");
-                    });
+                        describe("if sorting by field without index", function () {
 
-                    it("should fail", function () {
-                        expect(sort).toThrowError(/No PouchDB view/);
-                    });
+                            var sort = function () { datasource.sort({ field: "name", dir: "asc" }); };
 
-                });
+                            beforeEach(function () {
+                                datasource = createDataSource("passport", "mapreduce");
+                            });
 
-                describe("if sorting by more than one field", function () {
+                            it("should fail", function () {
+                                expect(sort).toThrowError(/No PouchDB view/);
+                            });
 
-                    var sort = function () {
-                        datasource.sort(
-                        [
-                            { field: "name", dir: "asc" },
-                            { field: "passport", dir: "asc" }
-                        ]);
-                    };
-
-                    beforeEach(function () {
-                        datasource = createDataSource("passport");
-                    });
-
-                    it("should fail", function () {
-                        expect(sort).toThrowError(/multiple fields/);
-                    });
-
-                });
-
-                describe("by string field", function () {
-
-                    var rows;
-
-                    beforeEach(function (done) {
-
-                        datasource = createDataSource("passport", //Will be sorted by id by default
-                        {
-                            "name": "sort/byName"
                         });
 
-                        pushSpy = testHelper.spyKendoEvent(datasource, "push");
-                        changeSpy = testHelper.spyKendoEvent(datasource, "change");
+                        describe("if sorting by more than one field", function () {
 
-                        rows = [
-                            createDatasourceDoc(1, "C"),
-                            createDatasourceDoc(2, "A"),
-                            createDatasourceDoc(3, "B")
-                        ];
+                            var sort = function () {
+                                datasource.sort(
+                                [
+                                    { field: "name", dir: "asc" },
+                                    { field: "passport", dir: "asc" }
+                                ]);
+                            };
 
-                        addIndex("sort", "byName", "name").then(done);
+                            beforeEach(function () {
+                                datasource = createDataSource("passport", "mapreduce");
+                            });
 
-                    });
+                            it("should fail", function () {
+                                expect(sort).toThrowError(/multiple fields/);
+                            });
 
-                    describe("sorting ascending", function () {
+                        });
+
+                    }
+
+                    describe("by string field", function () {
+
+                        var rows;
 
                         beforeEach(function (done) {
-                            addRowsAndSort(rows, "name", "asc").then(done);
+
+                            var fieldViews = (queryPlugin === "mapreduce") ?
+                                {
+                                    "name": "sort/byName" //Will be sorted by id by default
+                                }
+                                : undefined;
+
+                            datasource = createDataSource("passport", queryPlugin, fieldViews);
+
+                            pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                            changeSpy = testHelper.spyKendoEvent(datasource, "change");
+
+                            rows = [
+                                createDatasourceDoc(1, "C"),
+                                createDatasourceDoc(2, "A"),
+                                createDatasourceDoc(3, "B")
+                            ];
+
+                            addIndex(queryPlugin, "sort", "byName", "name").then(done).catch(done.fail);
+
                         });
 
-                        it("should get rows sorted asc", function () {
-                            expect(datasource.at(0).name).toBe("A");
-                            expect(datasource.at(1).name).toBe("B");
-                            expect(datasource.at(2).name).toBe("C");
-                        });
-
-                    });
-
-                    describe("sorting descending", function () {
-
-                        beforeEach(function (done) {
-                            addRowsAndSort(rows, "name", "desc").then(done);
-                        });
-
-                        it("should get rows sorted desc", function () {
-                            expect(datasource.at(0).name).toBe("C");
-                            expect(datasource.at(1).name).toBe("B");
-                            expect(datasource.at(2).name).toBe("A");
-                        });
-
-                    });
-
-                    afterEach(function () {
-                        pushSpy.dispose();
-                        changeSpy.dispose();
-                    });
-
-                });
-
-                describe("by number field", function () {
-
-                    var rows;
-
-                    beforeEach(function (done) {
-
-                        datasource = createDataSource("name", //Will be sorted by id by default.
-                        {
-                            "passport": "sort/byPassport"
-                        });
-
-                        pushSpy = testHelper.spyKendoEvent(datasource, "push");
-                        changeSpy = testHelper.spyKendoEvent(datasource, "change");
-
-                        rows = [
-                            createDatasourceDoc(3, "A"),
-                            createDatasourceDoc(1, "B"),
-                            createDatasourceDoc(2, "C")
-                        ];
-
-                        addIndex("sort", "byPassport", "passport").then(done);
-
-                    });
-
-                    describe("sorting ascending", function () {
-
-                        beforeEach(function (done) {
-                            addRowsAndSort(rows, "passport", "asc").then(done);
-                        });
-
-                        it("should get rows sorted asc", function () {
-                            expect(datasource.at(0).passport).toBe(1);
-                            expect(datasource.at(1).passport).toBe(2);
-                            expect(datasource.at(2).passport).toBe(3);
-                        });
-
-                        describe("with paging", function () {
+                        describe("sorting ascending", function () {
 
                             beforeEach(function (done) {
-                                datasource.pageSize(2);
-                                datasource.page(2);
-                                datasource.fetch().then(done);
+                                addRowsAndSort(rows, "name", "asc").then(done).fail(done.fail);
                             });
 
-                            it("total should be as without paging", function () {
-                                expect(datasource.total()).toBe(3);
+                            it("should get rows sorted asc", function () {
+                                expect(datasource.at(0).name).toBe("A");
+                                expect(datasource.at(1).name).toBe("B");
+                                expect(datasource.at(2).name).toBe("C");
                             });
 
-                            it("should return paged rows", function () {
+                        });
+
+                        describe("sorting descending", function () {
+
+                            beforeEach(function (done) {
+                                addRowsAndSort(rows, "name", "desc").then(done).fail(done.fail);
+                            });
+
+                            it("should get rows sorted desc", function () {
+                                expect(datasource.at(0).name).toBe("C");
+                                expect(datasource.at(1).name).toBe("B");
+                                expect(datasource.at(2).name).toBe("A");
+                            });
+
+                        });
+
+                        afterEach(function () {
+                            pushSpy.dispose();
+                            changeSpy.dispose();
+                        });
+
+                    });
+
+                    describe("by number field", function () {
+
+                        var rows;
+
+                        beforeEach(function (done) {
+
+                            var fieldViews = (queryPlugin === "mapreduce") ?
+                                {
+                                    "passport": "sort/byPassport" //Will be sorted by id by default
+                                }
+                                : undefined;
+
+                            datasource = createDataSource("name", queryPlugin, fieldViews);
+
+                            pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                            changeSpy = testHelper.spyKendoEvent(datasource, "change");
+
+                            rows = [
+                                createDatasourceDoc(3, "A"),
+                                createDatasourceDoc(1, "B"),
+                                createDatasourceDoc(2, "C")
+                            ];
+
+                            addIndex(queryPlugin, "sort", "byPassport", "passport").then(done).catch(done.fail);
+
+                        });
+
+                        describe("sorting ascending", function () {
+
+                            beforeEach(function (done) {
+                                addRowsAndSort(rows, "passport", "asc").then(done).fail(done.fail);
+                            });
+
+                            it("should get rows sorted asc", function () {
+                                expect(datasource.at(0).passport).toBe(1);
+                                expect(datasource.at(1).passport).toBe(2);
+                                expect(datasource.at(2).passport).toBe(3);
+                            });
+
+                            describe("with paging", function () {
+
+                                beforeEach(function (done) {
+                                    datasource.pageSize(2);
+                                    datasource.page(2);
+                                    datasource.fetch().then(done).fail(done.fail);
+                                });
+
+                                it("total should be as without paging", function () {
+                                    expect(datasource.total()).toBe(3);
+                                });
+
+                                it("should return paged rows", function () {
+                                    var view = datasource.view();
+                                    expect(view.length).toBe(1);
+                                    expect(view[0].passport).toBe(3);
+                                });
+
+                            });
+
+                        });
+
+                        describe("sorting descending", function () {
+
+                            beforeEach(function (done) {
+                                addRowsAndSort(rows, "passport", "desc").then(done).fail(done.fail);
+                            });
+
+                            it("should get rows sorted desc", function () {
+                                expect(datasource.at(0).passport).toBe(3);
+                                expect(datasource.at(1).passport).toBe(2);
+                                expect(datasource.at(2).passport).toBe(1);
+                            });
+
+                        });
+
+                        afterEach(function () {
+                            pushSpy.dispose();
+                            changeSpy.dispose();
+                        });
+
+                    });
+
+                });
+
+                describe("filtering with " + queryPlugin, function () {
+
+                    describe("by number field", function () {
+
+                        var rows;
+
+                        beforeEach(function (done) {
+
+                            var fieldViews = (queryPlugin === "mapreduce") ?
+                                {
+                                    "name": "sort/byName" //Will be sorted by id by default
+                                }
+                                : undefined;
+
+                            datasource = createDataSource("passport", queryPlugin, fieldViews);
+
+                            pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                            changeSpy = testHelper.spyKendoEvent(datasource, "change");
+
+                            rows = [
+                                createDatasourceDoc(1, "A"),
+                                createDatasourceDoc(2, "B"),
+                                createDatasourceDoc(3, "C"),
+                                createDatasourceDoc(4, "D"),
+                                createDatasourceDoc(5, "E")
+                            ];
+
+                            addIndex(queryPlugin, "sort", "byName", "name")
+                                .then(function () {
+                                    return addRowsAndSort(rows, "passport", "asc");
+                                })
+                                .then(done)
+                                .catch(done.fail);
+
+                        });
+
+                        if (queryPlugin === "mapreduce") {
+
+                            describe("array as filter parameter", function () {
+
+                                var fetch = function () {
+                                    datasource.filter([{ field: "passport", operator: "eq", value: 3 }, { field: "passport", operator: "eq", value: 4 }]);
+                                    datasource.fetch();
+                                };
+
+                                it("should throw error not supported", function () {
+                                    expect(fetch).toThrowError(/not supported/);
+                                });
+
+                            });
+
+                            describe("given filters property of filter", function () {
+
+                                var fetch = function () {
+                                    datasource.filter({ logic: "or", filters: [{ field: "passport", operator: "eq", value: 3 }, { field: "passport", operator: "eq", value: 4 }] });
+                                    datasource.fetch();
+                                };
+
+                                it("should throw error not supported", function () {
+                                    expect(fetch).toThrowError(/not supported/);
+                                });
+
+                            });
+
+                            describe("given filter that differs from default sort", function () {
+
+                                var fetch = function () {
+                                    datasource.filter({ field: "name", operator: "eq", value: "C" });
+                                    datasource.fetch();
+                                };
+
+                                it("should throw error not supported", function () {
+                                    expect(fetch).toThrowError(/not supported/);
+                                });
+
+                            });
+
+                            describe("given filter that differs from given sort", function () {
+
+                                beforeEach(function (done) {
+                                    datasource.sort({ field: "name", dir: "asc" });
+                                    datasource.fetch().then(done).fail(done.fail);
+                                });
+
+                                var fetch = function () {
+                                    datasource.filter({ field: "passport", operator: "eq", value: 3 });
+                                    datasource.fetch();
+                                };
+
+                                it("should throw error not supported", function () {
+                                    expect(fetch).toThrowError(/not supported/);
+                                });
+
+                            });
+
+                        }
+
+                        describe("filter with eq", function () {
+
+                            beforeEach(function (done) {
+                                datasource.filter({ field: "passport", operator: "eq", value: 3 });
+                                datasource.fetch().then(done).fail(done.fail);
+                            });
+
+                            it("should get specified row", function () {
                                 var view = datasource.view();
                                 expect(view.length).toBe(1);
                                 expect(view[0].passport).toBe(3);
                             });
 
-                        });
-
-                    });
-
-                    describe("sorting descending", function () {
-
-                        beforeEach(function (done) {
-                            addRowsAndSort(rows, "passport", "desc").then(done);
-                        });
-
-                        it("should get rows sorted desc", function () {
-                            expect(datasource.at(0).passport).toBe(3);
-                            expect(datasource.at(1).passport).toBe(2);
-                            expect(datasource.at(2).passport).toBe(1);
-                        });
-
-                    });
-
-                    afterEach(function () {
-                        pushSpy.dispose();
-                        changeSpy.dispose();
-                    });
-
-                });
-
-            });
-
-            describe("filtering", function () {
-
-                describe("by number field", function () {
-
-                    var rows;
-
-                    beforeEach(function (done) {
-
-                        datasource = createDataSource("passport", //Will be sorted by id by default.
-                        {
-                            "name": "sort/byName"
-                        });
-
-                        pushSpy = testHelper.spyKendoEvent(datasource, "push");
-                        changeSpy = testHelper.spyKendoEvent(datasource, "change");
-
-                        rows = [
-                            createDatasourceDoc(1, "A"),
-                            createDatasourceDoc(2, "B"),
-                            createDatasourceDoc(3, "C"),
-                            createDatasourceDoc(4, "D"),
-                            createDatasourceDoc(5, "E")
-                        ];
-
-                        addIndex("sort", "byName", "name")
-                            .then(function () {
-                                return addRowsAndSort(rows, "passport", "asc");
-                            })
-                            .then(done);
-
-                    });
-
-                    describe("array as filter parameter", function () {
-
-                        var fetch = function () {
-                            datasource.filter([{ field: "passport", operator: "eq", value: 3 }, { field: "passport", operator: "eq", value: 4 }]);
-                            datasource.fetch();
-                        };
-
-                        it("should throw error not supported", function () {
-                            expect(fetch).toThrowError(/not supported/);
-                        });
-
-                    });
-
-                    describe("given filters property of filter", function () {
-
-                        var fetch = function () {
-                            datasource.filter({ logic: "or", filters: [{ field: "passport", operator: "eq", value: 3 }, { field: "passport", operator: "eq", value: 4 }] });
-                            datasource.fetch();
-                        };
-
-                        it("should throw error not supported", function () {
-                            expect(fetch).toThrowError(/not supported/);
-                        });
-
-                    });
-
-                    describe("given filter that differs from sort", function () {
-
-                        var fetch = function () {
-                            datasource.filter({ field: "name", operator: "eq", value: "C" });
-                            datasource.fetch();
-                        };
-
-                        it("should throw error not supported", function () {
-                            expect(fetch).toThrowError(/not supported/);
-                        });
-
-                    });
-
-                    describe("given filter that differs from sort", function () {
-
-                        beforeEach(function (done) {
-                            datasource.sort({ field: "name", dir: "asc" });
-                            datasource.fetch().then(done);
-                        });
-
-                        var fetch = function () {
-                            datasource.filter({ field: "passport", operator: "eq", value: 3 });
-                            datasource.fetch();
-                        };
-
-                        it("should throw error not supported", function () {
-                            expect(fetch).toThrowError(/not supported/);
-                        });
-
-                    });
-
-                    describe("filter with eq", function () {
-
-                        beforeEach(function (done) {
-                            datasource.filter({ field: "passport", operator: "eq", value: 3 });
-                            datasource.fetch().then(done);
-                        });
-
-                        it("should get specified row", function () {
-                            var view = datasource.view();
-                            expect(view.length).toBe(1);
-                            expect(view[0].passport).toBe(3);
-                        });
-
-                        it("should get total equal to one", function () {
-                            expect(datasource.total()).toBe(1);
-                        });
-
-                    });
-
-                    describe("filter with neq", function () {
-
-                        var fetch = function () {
-                            datasource.filter({ field: "passport", operator: "neq", value: 3 });
-                            datasource.fetch();
-                        };
-
-                        it("should throw error not supported", function () {
-                            expect(fetch).toThrowError(/not supported/);
-                        });
-
-                    });
-
-                    describe("filter with lt", function () {
-
-                        beforeEach(function (done) {
-                            datasource.filter({ field: "passport", operator: "lt", value: 3 });
-                            datasource.fetch().then(done);
-                        });
-
-                        it("should get specified rows", function () {
-                            var view = datasource.view();
-                            expect(view.length).toBe(2);
-                            expect(view[0].passport).toBe(1);
-                            expect(view[1].passport).toBe(2);
-                        });
-
-                        it("should get total equal to rows in filter", function () {
-                            expect(datasource.total()).toBe(2);
-                        });
-
-                    });
-
-                    describe("filter with lte", function () {
-
-                        beforeEach(function (done) {
-                            datasource.filter({ field: "passport", operator: "lte", value: 3 });
-                            datasource.fetch().then(done);
-                        });
-
-                        it("should get specified rows", function () {
-                            var view = datasource.view();
-                            expect(view.length).toBe(3);
-                            expect(view[0].passport).toBe(1);
-                            expect(view[1].passport).toBe(2);
-                            expect(view[2].passport).toBe(3);
-                        });
-
-                        it("should get total equal to rows in filter", function () {
-                            expect(datasource.total()).toBe(3);
-                        });
-
-                        describe("with paging", function () {
-
-                            beforeEach(function (done) {
-                                datasource.pageSize(2);
-                                datasource.page(2);
-                                datasource.fetch().then(done);
+                            it("should get total equal to one", function () {
+                                expect(datasource.total()).toBe(1);
                             });
 
-                            it("total should be as without paging", function () {
+                        });
+
+                        if (queryPlugin !== "mapreduce") { //TODO: add support of neq to mapreduce mode
+
+                            describe("filter with neq", function () {
+
+                                beforeEach(function (done) {
+                                    datasource.filter({ field: "passport", operator: "neq", value: 3 });
+                                    datasource.fetch().then(done).fail(done.fail);
+                                });
+
+                                it("should get specified row", function () {
+                                    var view = datasource.view();
+                                    expect(view.length).toBe(4);
+                                    expect(view[0].passport).toBe(1);
+                                    expect(view[1].passport).toBe(2);
+                                    expect(view[2].passport).toBe(4);
+                                    expect(view[3].passport).toBe(5);
+                                });
+
+                                it("should get total equal to one", function () {
+                                    expect(datasource.total()).toBe(4);
+                                });
+
+                            });
+
+                        }
+
+                        describe("filter with lt", function () {
+
+                            beforeEach(function (done) {
+                                datasource.filter({ field: "passport", operator: "lt", value: 3 });
+                                datasource.fetch().then(done).fail(done.fail);
+                            });
+
+                            it("should get specified rows", function () {
+                                var view = datasource.view();
+                                expect(view.length).toBe(2);
+                                expect(view[0].passport).toBe(1);
+                                expect(view[1].passport).toBe(2);
+                            });
+
+                            it("should get total equal to rows in filter", function () {
+                                expect(datasource.total()).toBe(2);
+                            });
+
+                        });
+
+                        describe("filter with lte", function () {
+
+                            beforeEach(function (done) {
+                                datasource.filter({ field: "passport", operator: "lte", value: 3 });
+                                datasource.fetch().then(done).fail(done.fail);
+                            });
+
+                            it("should get specified rows", function () {
+                                var view = datasource.view();
+                                expect(view.length).toBe(3);
+                                expect(view[0].passport).toBe(1);
+                                expect(view[1].passport).toBe(2);
+                                expect(view[2].passport).toBe(3);
+                            });
+
+                            it("should get total equal to rows in filter", function () {
                                 expect(datasource.total()).toBe(3);
                             });
 
-                            it("should return paged rows", function () {
-                                var view = datasource.view();
-                                expect(view.length).toBe(1);
-                                expect(view[0].passport).toBe(3);
+                            describe("with paging", function () {
+
+                                beforeEach(function (done) {
+                                    datasource.pageSize(2);
+                                    datasource.page(2);
+                                    datasource.fetch().then(done).fail(done.fail);
+                                });
+
+                                it("total should be as without paging", function () {
+                                    expect(datasource.total()).toBe(3);
+                                });
+
+                                it("should return paged rows", function () {
+                                    var view = datasource.view();
+                                    expect(view.length).toBe(1);
+                                    expect(view[0].passport).toBe(3);
+                                });
+
                             });
 
                         });
 
-                    });
+                        describe("filter with gte", function () {
 
-                    describe("filter with gte", function () {
+                            beforeEach(function (done) {
+                                datasource.filter({ field: "passport", operator: "gte", value: 3 });
+                                datasource.fetch().then(done).fail(done.fail);
+                            });
 
-                        beforeEach(function (done) {
-                            datasource.filter({ field: "passport", operator: "gte", value: 3 });
-                            datasource.fetch().then(done);
+                            it("should get specified rows", function () {
+                                var view = datasource.view();
+                                expect(view.length).toBe(3);
+                                expect(view[0].passport).toBe(3);
+                                expect(view[1].passport).toBe(4);
+                                expect(view[2].passport).toBe(5);
+                            });
+
+                            it("should get total equal to rows in filter", function () {
+                                expect(datasource.total()).toBe(3);
+                            });
+
                         });
 
-                        it("should get specified rows", function () {
-                            var view = datasource.view();
-                            expect(view.length).toBe(3);
-                            expect(view[0].passport).toBe(3);
-                            expect(view[1].passport).toBe(4);
-                            expect(view[2].passport).toBe(5);
+                        afterEach(function () {
+                            pushSpy.dispose();
+                            changeSpy.dispose();
                         });
 
-                        it("should get total equal to rows in filter", function () {
-                            expect(datasource.total()).toBe(3);
-                        });
-
-                    });
-
-                    afterEach(function () {
-                        pushSpy.dispose();
-                        changeSpy.dispose();
                     });
 
                 });
@@ -1103,148 +1155,153 @@ describe("kendo-pouchdb", function () {
 
         });
 
-        describe("paging", function () {
+        $.each(queryPlugins, function (__, queryPlugin) {
 
-            var rows;
+            describe("paging with " +queryPlugin, function () {
 
-            beforeEach(function (done) {
-                datasource = createDataSource("passport");
-                rows = [
-                    createDatasourceDoc(1, "A"),
-                    createDatasourceDoc(2, "B"),
-                    createDatasourceDoc(3, "C"),
-                    createDatasourceDoc(4, "D"),
-                    createDatasourceDoc(5, "E")
-                ];
-                var dbChangePromise = testHelper.waitForDbChanges(db, rows.length);
-                testHelper.addArrayToDataSource(datasource, rows);
-
-                var syncPromise = datasource.sync();
-
-                $.when(dbChangePromise, syncPromise).then(done);
-            });
-
-            describe("page in the middle", function () {
+                var rows;
 
                 beforeEach(function (done) {
-                    datasource.pageSize(2);
-                    datasource.page(2);
-                    datasource.fetch().then(done);
+                    datasource = createDataSource("passport", queryPlugin);
+                    rows = [
+                        createDatasourceDoc(1, "A"),
+                        createDatasourceDoc(2, "B"),
+                        createDatasourceDoc(3, "C"),
+                        createDatasourceDoc(4, "D"),
+                        createDatasourceDoc(5, "E")
+                    ];
+                    var dbChangePromise = testHelper.waitForDbChanges(db, rows.length);
+                    testHelper.addArrayToDataSource(datasource, rows);
+
+                    var syncPromise = datasource.sync();
+
+                    $.when(dbChangePromise, syncPromise).then(done).fail(done.fail);
                 });
 
-                it("should fetch pageSize items", function () {
-                    var view = datasource.view();
-                    expect(view.length).toBe(2);
-                    expect(view[0].passport).toBe(3);
-                    expect(view[1].passport).toBe(4);
-                });
-
-                it("total() still should return correct number", function () {
-                    expect(datasource.total()).toBe(5);
-                });
-
-                describe("where there are design documents", function () {
+                describe("page in the middle", function () {
 
                     beforeEach(function (done) {
-                        addIndex("sort", "byName", "name")
-                            .then(function () {
-                                return datasource.fetch();
-                            })
-                            .then(done);
+                        datasource.pageSize(2);
+                        datasource.page(2);
+                        datasource.fetch().then(done).fail(done.fail);
+                    });
+
+                    it("should fetch pageSize items", function () {
+                        var view = datasource.view();
+                        expect(view.length).toBe(2);
+                        expect(view[0].passport).toBe(3);
+                        expect(view[1].passport).toBe(4);
                     });
 
                     it("total() still should return correct number", function () {
                         expect(datasource.total()).toBe(5);
                     });
 
-                });
-
-                describe("updating a document in PouchDB ", function () {
-
-                    //returns promise
-                    var updateDocNameInDb = function (id) {
-                        return db.get(pouchCollate.toIndexableString(id)).then(function (doc2Update) {
-
-                            doc2Update.name += "updated";
-
-                            var dbChangePromise = testHelper.waitForDbChanges(db, 1),
-                                putPromise = db.put(doc2Update);
-
-                            return $.when(dbChangePromise, putPromise);
-                        });
-                    };
-
-                    beforeEach(function () {
-                        pushSpy = testHelper.spyKendoEvent(datasource, "push");
-                        changeSpy = testHelper.spyKendoEvent(datasource, "change");
-                    });
-
-                    describe("that in range", function () {
+                    describe("where there are design documents", function () {
 
                         beforeEach(function (done) {
-                            updateDocNameInDb(3).then(done);
+                            addIndex(queryPlugin, "sort", "byName", "name")
+                                .then(function () {
+                                    return datasource.fetch();
+                                })
+                                .then(done)
+                                .catch(done.fail);
                         });
 
-                        it("should push update to datasourse", function () {
-                            expect(pushSpy.events.length).toEqual(1);
-                            expect(pushSpy.events[0].e.type).toEqual("update");
-                            var item = pushSpy.events[0].e.items[0];
-                            expect(item._id).toBe(pouchCollate.toIndexableString(3));
-                        });
-
-                    });
-
-                    describe("that not in range", function () {
-
-                        beforeEach(function (done) {
-                            updateDocNameInDb(1).then(done);
-                        });
-
-                        it("should not push update to datasourse", function () {
-                            expect(pushSpy.events.length).toEqual(0);
+                        it("total() still should return correct number", function () {
+                            expect(datasource.total()).toBe(5);
                         });
 
                     });
 
-                    afterEach(function () {
-                        pushSpy.dispose();
-                        changeSpy.dispose();
+                    describe("updating a document in PouchDB ", function () {
+
+                        //returns promise
+                        var updateDocNameInDb = function (id) {
+                            return db.get(pouchCollate.toIndexableString(id)).then(function (doc2Update) {
+
+                                doc2Update.name += "updated";
+
+                                var dbChangePromise = testHelper.waitForDbChanges(db, 1),
+                                    putPromise = db.put(doc2Update);
+
+                                return $.when(dbChangePromise, putPromise);
+                            });
+                        };
+
+                        beforeEach(function () {
+                            pushSpy = testHelper.spyKendoEvent(datasource, "push");
+                            changeSpy = testHelper.spyKendoEvent(datasource, "change");
+                        });
+
+                        describe("that in range", function () {
+
+                            beforeEach(function (done) {
+                                updateDocNameInDb(3).then(done).catch(done.fail);
+                            });
+
+                            it("should push update to datasourse", function () {
+                                expect(pushSpy.events.length).toEqual(1);
+                                expect(pushSpy.events[0].e.type).toEqual("update");
+                                var item = pushSpy.events[0].e.items[0];
+                                expect(item._id).toBe(pouchCollate.toIndexableString(3));
+                            });
+
+                        });
+
+                        describe("that not in range", function () {
+
+                            beforeEach(function (done) {
+                                updateDocNameInDb(1).then(done).catch(done.fail);
+                            });
+
+                            it("should not push update to datasourse", function () {
+                                expect(pushSpy.events.length).toEqual(0);
+                            });
+
+                        });
+
+                        afterEach(function () {
+                            pushSpy.dispose();
+                            changeSpy.dispose();
+                        });
+
                     });
 
                 });
 
-            });
+                describe("page in the end", function () {
 
-            describe("page in the end", function () {
+                    beforeEach(function (done) {
+                        datasource.pageSize(2);
+                        datasource.page(3);
+                        datasource.fetch().then(done).fail(done.fail);
+                    });
 
-                beforeEach(function (done) {
-                    datasource.pageSize(2);
-                    datasource.page(3);
-                    datasource.fetch().then(done);
+                    it("should fetch pageSize items", function () {
+                        var view = datasource.view();
+                        expect(view.length).toBe(1);
+                        expect(view[0].passport).toBe(5);
+                    });
+
                 });
 
-                it("should fetch pageSize items", function () {
-                    var view = datasource.view();
-                    expect(view.length).toBe(1);
-                    expect(view[0].passport).toBe(5);
-                });
+                describe("in desc order", function () {
 
-            });
+                    beforeEach(function (done) {
+                        datasource.pageSize(2);
+                        datasource.page(2);
+                        datasource.sort({ field: "passport", dir: "desc" });
+                        datasource.fetch().then(done).fail(done.fail);
+                    });
 
-            describe("in desc order", function () {
+                    it("should fetch pageSize items in opposite order", function () {
+                        var view = datasource.view();
+                        expect(view.length).toBe(2);
+                        expect(view[0].passport).toBe(3);
+                        expect(view[1].passport).toBe(2);
+                    });
 
-                beforeEach(function (done) {
-                    datasource.pageSize(2);
-                    datasource.page(2);
-                    datasource.sort({ field: "passport", dir: "desc" });
-                    datasource.fetch().then(done);
-                });
-
-                it("should fetch pageSize items in opposite order", function () {
-                    var view = datasource.view();
-                    expect(view.length).toBe(2);
-                    expect(view[0].passport).toBe(3);
-                    expect(view[1].passport).toBe(2);
                 });
 
             });
@@ -1282,16 +1339,16 @@ describe("kendo-pouchdb", function () {
                     dbChangePromise = testHelper.waitForDbChanges(db, docs.length),
                     bulkDocsPromise = db.bulkDocs(docs);
 
-                datasource = createDataSource("passport", undefined, 'people/withName');
+                datasource = createDataSource("passport", "mapreduce", undefined, 'people/withName');
 
-                $.when(bulkDocsPromise, dbChangePromise).then(done);
+                $.when(bulkDocsPromise, dbChangePromise).then(done).fail(done.fail);
 
             });
 
             describe("when fetched", function () {
 
                 beforeEach(function (done) {
-                    datasource.fetch().then(done);
+                    datasource.fetch().then(done).fail(done.fail);
                 });
 
                 it("should fetch data filtered by view", function () {
@@ -1310,7 +1367,7 @@ describe("kendo-pouchdb", function () {
 
             beforeEach(function () {
 
-                datasource = createDataSource("name");
+                datasource = createDataSource("name", "mapreduce");
                 errorSpy = testHelper.spyKendoEvent(datasource, "error");
             });
 
@@ -1336,7 +1393,7 @@ describe("kendo-pouchdb", function () {
 
                 beforeEach(function (done) {
                     spyOn(db, "put").and.returnValue(PouchDB.utils.Promise.reject("simulated PouchDB.put error"));
-                    datasource.fetch().then(done);
+                    datasource.fetch().then(done).fail(done.fail);
                 });
 
                 it("should raise error event on datasource", function (done) {
@@ -1358,20 +1415,20 @@ describe("kendo-pouchdb", function () {
 
         });
 
-
-        describe("building find selector", function () {
+        describe("building find:selector", function () {
 
             beforeEach(function () {
-                datasource = createDataSource("name", undefined, undefined, "pouchdb-find");
+                datasource = createDataSource("name", "pouchdb-find");
             });
 
             describe("empty filter, no sort", function () {
 
-                var filter, selector;
+                var selector;
 
                 beforeEach(function () {
-                    filter = datasource.filter();
-                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                    var filter = datasource.filter(),
+                        sort = datasource.sort();
+                    selector = datasource.transport._kendoFilterToFindSelector(filter, sort);
                 });
 
                 it("should return undefined", function () {
@@ -1380,14 +1437,15 @@ describe("kendo-pouchdb", function () {
 
             });
 
-            describe("simple filter, no sort", function () {
+            describe("simple filter not by id, no sort", function () {
 
-                var filter, selector;
+                var selector;
 
                 beforeEach(function () {
                     datasource.filter({ field: "passport", operator: "eq", value: 123 });
-                    filter = datasource.filter();
-                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                    var filter = datasource.filter(),
+                        sort = datasource.sort();
+                    selector = datasource.transport._kendoFilterToFindSelector(filter, sort);
                 });
 
                 it("should build up appropriate explicit selector", function () {
@@ -1404,9 +1462,9 @@ describe("kendo-pouchdb", function () {
 
             });
 
-            describe("complex filter, no sort", function () {
+            describe("complex filter by not id and id, no sort", function () {
 
-                var filter, selector;
+                var selector;
 
                 beforeEach(function () {
                     datasource.filter({
@@ -1416,16 +1474,18 @@ describe("kendo-pouchdb", function () {
                             { field: "passport", operator: "eq", value: 234 }
                         ]
                     });
-                    filter = datasource.filter();
-                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                    var filter = datasource.filter(),
+                        sort = datasource.sort();
+
+                    selector = datasource.transport._kendoFilterToFindSelector(filter, sort);
                 });
 
                 it("should build up appropriate explicit selector", function () {
                     expect(selector).toEqual({
                         "$or": [
                             {
-                                "name": {
-                                    "$eq": "Vasya"
+                                "_id": {
+                                    "$eq": pouchCollate.toIndexableString("Vasya")
                                 }
                             },
                             {
@@ -1441,7 +1501,7 @@ describe("kendo-pouchdb", function () {
 
             describe("nested filter, no sort", function () {
 
-                var filter, selector;
+                var selector;
 
                 beforeEach(function () {
                     datasource.filter({
@@ -1458,16 +1518,17 @@ describe("kendo-pouchdb", function () {
                             }
                         ]
                     });
-                    filter = datasource.filter();
-                    selector = kendo.data.transports.pouchdb.fn._kendoFilterToFindSelector(filter);
+                    var filter = datasource.filter(),
+                        sort = datasource.sort();
+                    selector = datasource.transport._kendoFilterToFindSelector(filter, sort);
                 });
 
                 it("should build up appropriate explicit selector", function () {
                     expect(selector).toEqual({
                         "$or": [
                             {
-                                "name": {
-                                    "$eq": "Vasya"
+                                "_id": {
+                                    "$eq": pouchCollate.toIndexableString("Vasya")
                                 }
                             },
                             {
@@ -1477,8 +1538,8 @@ describe("kendo-pouchdb", function () {
                             }, {
                                 "$and": [
                                     {
-                                        "name": {
-                                            "$eq": "Petya"
+                                        "_id": {
+                                            "$eq": pouchCollate.toIndexableString("Petya")
                                         }
                                     },
                                     {
@@ -1494,21 +1555,109 @@ describe("kendo-pouchdb", function () {
 
             });
 
+            describe("sort not by id, without filter", function () {
+
+                var selector;
+
+                beforeEach(function (done) {
+                    createFindIndex(["passport"]).then(function () {
+                            datasource.sort({ field: "passport", dir: "asc" });
+                            return datasource.fetch()
+                                .then(function () {
+                                    var filter = datasource.filter(),
+                                        sort = datasource.sort();
+                                    selector = datasource.transport._kendoFilterToFindSelector(filter, sort);
+                                    done();
+                                });
+                        })
+                        .catch(done.fail);
+                });
+
+                it("should build up appropriate explicit selector", function () {
+                    expect(selector).toEqual({
+                        "$and": [
+                            {
+                                "passport": {
+                                    "$exists": true
+                                }
+                            }
+                        ]
+                    });
+                });
+
+            });
+
+            describe("_isIdRangeFilter", function () {
+                var result;
+
+                beforeEach(function () {
+                    datasource = createDataSource("passport", "pouchdb-find");
+                });
+
+                describe("when range _id", function () {
+
+                    beforeEach(function () {
+                        datasource.filter({ field: "_id", operator: "eq", value: 123 });
+                        var filter = datasource.filter();
+                        result = datasource.transport._isIdRangeFilter(filter);
+                    });
+
+                    it("should return true", function () {
+                        expect(result).toBe(true);
+                    });
+
+                });
+
+                describe("when range idColumn", function () {
+
+                    beforeEach(function () {
+                        datasource.filter({ field: "passport", operator: "eq", value: 123 });
+                        var filter = datasource.filter();
+                        result = datasource.transport._isIdRangeFilter(filter);
+                    });
+
+                    it("should return true", function () {
+                        expect(result).toBe(true);
+                    });
+
+                });
+
+                describe("when range not by id", function () {
+
+                    beforeEach(function () {
+                        datasource.filter({ field: "name", operator: "eq", value: 123 });
+                        var filter = datasource.filter();
+                        result = datasource.transport._isIdRangeFilter(filter);
+                    });
+
+                    it("should return true", function () {
+                        expect(result).toBe(false);
+                    });
+
+                });
+
+            });
+
         });
 
-        describe("building find sort", function () {
+        describe("building find:sort", function () {
 
             beforeEach(function () {
-                datasource = createDataSource("name", undefined, undefined, "pouchdb-find");
+                datasource = createDataSource("name", "pouchdb-find");
             });
 
             describe("no sort", function () {
 
                 var kendoSort, pouchSort;
 
-                beforeEach(function () {
+                beforeEach(function (done) {
                     kendoSort = datasource.sort();
-                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                    datasource.fetch()
+                        .then(function () {
+                            pouchSort = datasource.transport._kendoSortToFindSort(kendoSort);
+                            done();
+                        })
+                        .fail(done.fail);
                 });
 
                 it("should return undefined", function () {
@@ -1517,37 +1666,47 @@ describe("kendo-pouchdb", function () {
 
             });
 
-            describe("one field sort", function () {
+            describe("one field sort (id)", function () {
 
                 var kendoSort, pouchSort;
 
-                beforeEach(function () {
+                beforeEach(function (done) {
                     datasource.sort({ field: "name", dir: "asc" });
                     kendoSort = datasource.sort();
-                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                    datasource.fetch()
+                        .then(function () {
+                            pouchSort = datasource.transport._kendoSortToFindSort(kendoSort);
+                            done();
+                        })
+                        .fail(done.fail);
                 });
 
                 it("should return appropriate sort configuration", function () {
                     expect(pouchSort).toEqual([
-                        { "name": "asc" }
+                        { "_id": "asc" }
                     ]);
                 });
 
             });
 
-            describe("one field sort desc", function () {
+            describe("one field sort (id) desc", function () {
 
                 var kendoSort, pouchSort;
 
-                beforeEach(function () {
+                beforeEach(function (done) {
                     datasource.sort({ field: "name", dir: "desc" });
                     kendoSort = datasource.sort();
-                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                    datasource.fetch()
+                        .then(function () {
+                            pouchSort = datasource.transport._kendoSortToFindSort(kendoSort);
+                            done();
+                        })
+                        .fail(done.fail);
                 });
 
                 it("should return appropriate sort configuration", function () {
                     expect(pouchSort).toEqual([
-                        { "name": "desc" }
+                        { "_id": "desc" }
                     ]);
                 });
 
@@ -1557,18 +1716,27 @@ describe("kendo-pouchdb", function () {
 
                 var kendoSort, pouchSort;
 
-                beforeEach(function () {
-                    datasource.sort([
-                        { field: "name", dir: "asc" },
-                        { field: "passport", dir: "desc" }
-                    ]);
-                    kendoSort = datasource.sort();
-                    pouchSort = kendo.data.transports.pouchdb.fn._kendoSortToFindSort(kendoSort);
+                beforeEach(function (done) {
+                    createFindIndex(["_id", "passport"])
+                        .then(function () {
+                            datasource.sort([
+                                { field: "name", dir: "asc" },
+                                { field: "passport", dir: "desc" }
+                            ]);
+                            return datasource.fetch()
+                                .then(function () {
+                                    kendoSort = datasource.sort();
+                                    pouchSort = datasource.transport._kendoSortToFindSort(kendoSort);
+                                    done();
+                                });
+                        })
+                        .catch(done.fail);
+
                 });
 
                 it("should return appropriate sort configuration", function () {
                     expect(pouchSort).toEqual([
-                        { "name": "asc" },
+                        { "_id": "asc" },
                         { "passport": "desc" }
                     ]);
                 });

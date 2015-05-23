@@ -211,7 +211,8 @@ TODO
 
 Will use [pouchdb-find](<https://github.com/nolanlawson/pouchdb-find>) plugin. Filters and sorting can be as complex as pouchdb-find supports.
 
-Indexes should be defined beforehand, or query will fail.
+Indexes should be defined beforehand, or query will fail. If filter or sorting use id filed,
+add index on _id field instead.
 
 ```js
 var dataSource = new kendo.data.PouchableDataSource({
@@ -229,6 +230,10 @@ var dataSource = new kendo.data.PouchableDataSource({
 defaultView cannot be used in this mode.
 
 fieldViews cannot be used in this mode.
+
+Note: when sorting in this mode, and no filter specified, selector with $exists=true will
+be used, so rows with null values in sort field will not be selected. This is limitation
+AFAIK of pouchdb-find.
 
 # Use with Couchbase Mobile
 
