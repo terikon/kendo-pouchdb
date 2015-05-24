@@ -4,7 +4,8 @@
 
 [PouchDB](<http://pouchdb.com/>) is the Database that Syncs.
 [Kendo UI](<http://www.telerik.com/kendo-ui>) is a set of beautiful UI widgets.
-This library connects between the two, so you can bind data from database directly to Kendo.
+This library connects between the two, so you can bind data from database directly to Kendo and
+expect them to be in sync.
 
 **kendo-pouchdb** has following set of features:
 
@@ -37,10 +38,10 @@ See online demo of kendo-pouchdb:
 
 [![Demo](<http://terikon.github.io/kendo-pouchdb/images/demo-grid.png>)](<http://terikon.github.io/kendo-pouchdb/demo/kendo-pouchdb-grid.html>)
 
-Demo data is put into PouchDB database named *demodb*, and presented with kendo grid. You can create/update/delete records, and they will persist in the database. Just reload the page to see your data stored.
+Demo data is put into PouchDB database named *demodb*, and presented with Kendo Grid. You can create/update/delete records, and they will persist in the database. Just reload the page to see your data stored after modification.
 
-Using [PouchDB Inspector](<https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa>) you can change a document in database, and the grid will
-refresh to present your change immediately. 
+Using [PouchDB Inspector](<https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa>) you can change a document in database, and the Grid will
+refresh itself to present your change immediately. 
 
 In addition more features can be seen here:
 
@@ -65,11 +66,11 @@ bower install kendo-pouchdb
 
 ## include on page
 
-Download **kendo-pouchdb.js**
+Download **kendo-pouchdb.js**,
 [minified](https://raw.githubusercontent.com/terikon/kendo-pouchdb/master/dist/kendo-pouchdb.min.js) or
 [debug](https://raw.githubusercontent.com/terikon/kendo-pouchdb/master/kendo-pouchdb.js) version.
 
-Include jQuery, Kendo UI, [pouchdb](<https://github.com/pouchdb/pouchdb>)
+Include jQuery, Kendo UI, [pouchdb](<http://pouchdb.com/>)
 and [pouchdb-collate.js](<https://raw.githubusercontent.com/pouchdb/collate/master/dist/pouchdb-collate.js>).
 Optionally, add 
 [pouchdb.find.js](<https://raw.githubusercontent.com/nolanlawson/pouchdb-find/master/dist/pouchdb.find.min.js>) for more flexible sorting and filtering.
@@ -90,7 +91,7 @@ Optionally, add
 For usage with AMD, use
 [kendo-pouchdb.amd.js](<https://raw.githubusercontent.com/terikon/kendo-pouchdb/master/kendo-pouchdb.amd.js>).
 
-Example configuration with requirejs:
+Example configuration with [RequireJS](<http://requirejs.org/>):
 
 ```js
 requirejs.config({
@@ -112,10 +113,10 @@ define(['PouchDB'], function (PouchDB) {
 
 # Use
 
-The library creates **kendo.data.PouchableDataSource** object, that acts like casual
+The library adds **kendo.data.PouchableDataSource** object to Kendo, that acts like casual
 kendo.data.DataSource, but can also be of "pouchdb" type.
 
-Create pouchdb datasource:
+You create pouchdb datasource like this:
 
 ```js
 var dataSource = new kendo.data.PouchableDataSource({
@@ -128,28 +129,30 @@ var dataSource = new kendo.data.PouchableDataSource({
     });
 ```
 
-Now you can do all the things you can do with DataSource, like dataSource.filter() or
-dataSource.sort().
+Now you can do all the things you can do with DataSource, like binding it to Grid or
+any other widget, or perform dataSource.filter() or dataSource.sort().
 
 PouchDB database will serve as remote service for the datasource, so do not forget to call 
 [dataSource.sync()](<http://docs.telerik.com/kendo-ui/api/javascript/data/datasource#methods-sync>)
 method when needed.
 
 You have to provide appropriate model to use with your datasource, due to the fact that id field
-stored in PouchDB should always be named row._id. You can either define _id field in your schema,
-and set model's id to be "_id". Or you can use any name as id field, in which case you
+for data stored in PouchDB should always be named row._id. You can either define _id field in
+your schema, and set model's id to be "_id". Or you can use any name as id field, in which case you
 **should not** define model's id in model configuration, as _id field will be created as copy of
 if field of your choice automatically.
 
-In either option, you must tell which field is used as id field within idField option in
+In either option, you must tell which field is used as id field with idField option in
 transport configuration.
+
+Example of model configuration "Kendo-way", so _id will be created for you: 
 
 ```js
 schema: {
     model: {
         //Do not supply id field in schema like this, as _id field will be used as id field.
         //In other words, do not write here 'id: "ProductID"'.
-        //Tell the pouchdb transport that your id field is ProductID, and it even can be number!
+        //Tell the pouchdb transport that your id field is ProductID, and it even can be a number!
         fields: {
             ProductID: { type: number },
             ProductName: { type: string }
@@ -158,7 +161,7 @@ schema: {
 }
 ```
 
-The _id field option:
+Example of _id field manually defined with model configuration:
 
 ```js
 schema: {
@@ -174,17 +177,17 @@ schema: {
 
 _id will be created by applying
 [pouchCollate.toIndexableString](<https://github.com/pouchdb/collate/#toindexablestringobj>)
-to data provided by idField, so data will be stored sorted correctly, either it string or
+method to data provided by idField, so data will be sorted correctly, either it is of string or
 numeric type.
 
 ## id field
 
 id field can be of string and numeric type.
-Do not use date field as id field.
+Do not use field of date type as id field.
 
 ## Model class
 
-If, instead of model configuration, model **class** is provided to schema, it **should** have _id field as model's id:
+If, instead of model configuration, external model **class** is provided to schema, it **should** have _id field defined as model's id:
 
 ```js
 var Model = kendo.data.Model.define({
@@ -198,19 +201,19 @@ var Model = kendo.data.Model.define({
 ## Queries
 
 Sorting and filtering can be used, limited to PouchDB abilities. Just use standard
-dataSource.filter() and dataSource.sort() methods.
+dataSource.filter() and dataSource.sort() methods, or rely on your UI widget abilities.
 
 Queries will run directly on
 database. You can use two query plugins of PouchDB. Map reduce is currently default query plugin,
-but only limited set of filter/sort combination. PouchDB Find plugin is currently in beta state,
-but its support of data filtering much more liberating, thanks to
+but it only has limited set of filter/sort combination. PouchDB Find plugin is currently in
+beta state, but its support of data filtering much more liberating, thanks to
 [IBM Cloadant query language](<https://docs.cloudant.com/api.html#query>).
 
 In either case, appropriate indexes that enable data fetching should be created in advance.
 
 ## MapReduce or PouchDB Find
 
-MapReduce will be used by default, as now it is stable query plugin.
+MapReduce will be used by default, as currently it is stable query plugin.
 
 To use pouchdb-find, use following transport configuration:
 
@@ -218,7 +221,7 @@ To use pouchdb-find, use following transport configuration:
 transport: {
     pouchdb: {
         db: db,
-        queryPlugin: "pouchdb-find", //queryPlugin is mapreduce by default
+        queryPlugin: "pouchdb-find", //queryPlugin is 'mapreduce' by default
         idField: "_id"
     }
 });
@@ -226,28 +229,32 @@ transport: {
 
 ## Default View (MapReduce mode)
 
-Default view can be provided, so data will be fetched used this view:
+Default view can optionally be provided, so data will be fetched using provided view:
 
 ```js
 var dataSource = new kendo.data.PouchableDataSource({
-    type: "pouchdb",
-    transport: {
-        pouchdb: {
-            db: db,
-            idField: "passport",
-            defaultView: "people/withName"
-        }
-    });
+  type: "pouchdb",
+  transport: {
+      pouchdb: {
+          db: db,
+          idField: "passport",
+          defaultView: "people/withName"
+      }
+  });
     
-//Now the data from people/withName view will be fetched.
+dataSource.fetch().then(function() {
+  //The data from people/withName view will be fetched.
+});
 ```
 
 Pay attention that if sorting specified, sort view from fieldViews will be used instead of default view.
 
 ## Sorting (MapReduce mode)
 
-For sort to work, appropriate PouchDB view should be provided for each field that will be used
-for sorting:
+Without configuration, only sorting by id field will work.
+
+For sort by other fields to work, appropriate PouchDB view should be provided for each field
+that will be used for sorting:
 
 ```js
 var dataSource = new kendo.data.PouchableDataSource({
@@ -269,9 +276,9 @@ var dataSource = new kendo.data.PouchableDataSource({
 
 Error will be raised if you will try to sort by a field that has no index.
 
-Sorting by multiple columns is not supported in map reduce mode.
+When sorting by the _id field, do not provide view for it in fieldViews. Use defaultView instead.
 
-When sorting by the _id field, do not provide view for it in fieldViews. Use defaultView instead. 
+Note: sorting by multiple columns is not supported in map reduce mode.
 
 ## Filtering (MapReduce mode)
 
@@ -281,7 +288,10 @@ Filtering is somewhat limited in this mode.
 - When filer applied to field other than id field, sort should be applied to this field either.
 - Currently "neq" and "gt" operators are not supported.
 
-# Filtering and sorting (PouchDB Find mode) 
+For supported scenarios, just use
+[DataSource filter](<http://docs.telerik.com/kendo-ui/api/javascript/data/datasource#configuration-filter>). It will be used such as serverFiltering option is set to true. 
+
+## Filtering and sorting (PouchDB Find mode) 
 
 Filters and sorting can be as complex as pouchdb-find supports.
 
@@ -308,13 +318,35 @@ defaultView and fieldViews cannot be used in this mode, do not mix modes.
 Note: when sorting in this mode, be careful with fields that contain null values. When no filter specified when sorting, selector with *$exists=true* condition will be used, so rows with null 
 values in sort field will not be selected. This is limitation, AFAIK, of pouchdb-find.
 
+## More examples
+
+There is a lot of code to learn from in
+[test specs](<https://github.com/terikon/kendo-pouchdb/blob/master/tests/spec/kendo-pouchdbSpec.js>). Use it to your advantage.
+
 # API
 
 In general, **kendo-pouchdb** acts as adapter between Kendo's DataSource object and PouchDB
 database.
 
-TODO
+kendo.data.PouchableDataSource object extends kendo.data.DataSource and can be used as casual
+DataSource.
 
+To activate kendo-pouchdb, set type option of dataset to "pouchdb", and provide pouchdb transport
+in datasource configuration.
+
+## kendo.data.PouchableDataSource
+
+- type: set to "pouchdb".
+
+## pouchdb transport
+
+- db (mandatory). PouchDB database instance.
+- idField (mandatory). _id or any other field of model that will be used as id field.
+- queryPlugin (optional). "mapreduce" or "pouchdb-find". Default is "mapreduce".
+- defaultView (optional)(only in maprecude mode). If set, data will be fetched using this
+PouchDB view, when sorting by id.
+- fieldViews (optional)(only in maprecude mode). Object of 'field':'view name' pairs for
+sorting. View name is in format 'users/byName'.
 
 # Work status
 
