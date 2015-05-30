@@ -99,6 +99,9 @@ requirejs.config({
     "PouchDB": "lib/pouchdb/pouchdb",
     "pouchCollate": "lib/pouchdb/pouchdb-collate",
   },
+  shim: {
+    "kendo-pouchdb.amd": { deps: ["kendo"] }
+  },
   map: {
     '*': {
         'kendo': 'kendo-pouchdb.amd'
