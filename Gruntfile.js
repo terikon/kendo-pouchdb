@@ -1,13 +1,16 @@
 module.exports = function(grunt) {
-	
-	grunt.loadNpmTasks('grunt-contrib-uglify');
-	grunt.loadNpmTasks('grunt-contrib-jshint');
-	grunt.loadNpmTasks('grunt-contrib-jasmine');
-	
+
+	// Load grunt tasks automatically
+  	require('load-grunt-tasks')(grunt);
+
+	var lintFiles = ['Gruntfile.js', 'kendo-pouchdb.js', 'kendo-pouchdb.amd.js',
+		'tests/spec/*.js', 'tests/*.js'
+	];
+
 	grunt.initConfig({
-		
+
 		pkg: grunt.file.readJSON('package.json'),
-		
+
 		uglify: {
 			options: {
 				sourceMap: true,
@@ -25,12 +28,18 @@ module.exports = function(grunt) {
 				dest: 'dist/kendo-pouchdb.amd.min.js'
 			}
 		},
-		
+
 		jshint: {
-			all: ['Gruntfile.js', 'kendo-pouchdb.js', 'kendo-pouchdb.amd.js',
-				'tests/spec/*.js', 'tests/*.js']
+			all: lintFiles
 		},
-		
+
+		kendo_lint: {
+			options: {
+				force: true
+			},
+			files: lintFiles
+		},
+
 		jasmine: {
 			all: {
 				src: ['kendo-pouchdb.js', 'tests/testHelper.js'],
@@ -48,9 +57,9 @@ module.exports = function(grunt) {
 				}
 			}
 		}
-		
+
 	});
-	
+
 	grunt.registerTask('default', ['uglify']);
 	grunt.registerTask('test', ['jasmine']);
 };

@@ -1,14 +1,14 @@
 {
   "name": "kendo-pouchdb",
   "title": "kendoPouchDB",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Kendo UI adapter for PouchDB",
   "main": "kendo-pouchdb.js",
   "scripts": {
     "//": "use '|| true' to prevent warning",
     "build": "npm install && grunt",
     "test": "grunt test",
-    "jshint": "grunt jshint"
+    "jshint": "grunt jshint && grunt kendo_lint"
   },
   "repository": {
     "type": "git",
@@ -44,6 +44,8 @@
     "grunt-contrib-uglify": "^0.9.1",
     "grunt-contrib-jshint": "^0.11.1",
     "grunt-contrib-jasmine": "^0.8.2",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "grunt-kendo-lint": "~0.0.3",
+    "load-grunt-tasks": "~0.2.0"
   }
 }
