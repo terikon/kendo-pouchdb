@@ -14,6 +14,8 @@
 
     (function ($) {
 
+        'use strict';
+
         var queryPlugins = {
                 MAPREDUCE: "mapreduce",
                 POUCHDBFIND: "pouchdb-find"
@@ -127,110 +129,122 @@
                 read: function (options) {
                     //options.data contain filter,group,page and sort info
 
-                    var that = this,
-                        filter = options.data.filter,
-                        sort = options.data.sort,
-                        mapreduce = that.queryPlugin === queryPlugins.MAPREDUCE,
-                        pouchdbfind = that.queryPlugin === queryPlugins.POUCHDBFIND,
-                        fieldViewAndDir = mapreduce ? that._getFieldViewAndDirForSort(sort) : undefined,
-                        findSelector = pouchdbfind ? that._kendoFilterToFindSelector(filter, sort) : undefined,
-                        findSort = pouchdbfind ? that._kendoSortToFindSort(sort) : undefined,
-                        filterGoodForAllDocs = that._isEmptyFilter(filter) || (mapreduce && that._isIdRangeFilter(filter)),
-                        sortGoodForAllDocs = that._isEmptySort(sort) || that._isIdSort(sort),
-                        useAllDocs = filterGoodForAllDocs && sortGoodForAllDocs && !that.defaultView && !findSelector,
-                        getQueryMethodByQueryPlugin = function () {
-                            if (mapreduce) {
-                                return that.db.query.bind(that.db, fieldViewAndDir.fieldView);
-                            } else if (pouchdbfind) {
-                                return that.db.find;
-                            }
-                            throw new Error(kendo.format("queryPlugin {0} is not supported", that.queryPlugin));
-                        },
-                        queryMethod = useAllDocs ? that.db.allDocs : getQueryMethodByQueryPlugin(),
-                        applyFilter,
-                        applyPaging,
-                        skip,
-                        limit = options.data.pageSize,
-                        page = options.data.page,
-                        //returns total number of design docs in database
-                        countDocsToSubtract = function () {
-                            if (!useAllDocs || applyFilter) { //When allDocs is used, design documents are returned and needed to be subtracted
-                                return PouchDB.utils.Promise.resolve(0);
-                            }
-                            return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
-                                return result.rows.length;
-                            });
-                        },
-                        filterQueryOptions;
+                    try {
 
-                    that._validateFilter(options.data.filter, options.data.sort);
-                    filterQueryOptions = (useAllDocs || mapreduce) ? this._getFilterQueryOptions(options.data.filter) : undefined;
-                    applyFilter = !!filterQueryOptions;
-
-                    if (limit !== undefined) {
-                        if (page === undefined) {
-                            page = 1;
-                        }
-                        skip = limit * (page - 1);
-                    } else {
-                        skip = undefined;
-                    }
-                    applyPaging = (skip !== undefined || limit !== undefined);
-
-                    var descending = fieldViewAndDir ? fieldViewAndDir.descending : undefined,
-                        include_docs = (useAllDocs || mapreduce) ? true : undefined,
-                        queryOptions = $.extend({
-                            include_docs: include_docs,
-                            descending: descending,
-                            skip: skip,
-                            limit: limit,
-                            selector: findSelector,
-                            sort: findSort
-                        }, filterQueryOptions),
-                        //calculates total rows and sets total_rows on response accordingly
-                        applyTotalRowsOnResponse = function (response, totalRowsToSubtract) {
-                            if (useAllDocs && !applyFilter) {
-                                response.total_rows -= totalRowsToSubtract; //subtracts design documents from total_rows
-                                return response;
-                            } else if (pouchdbfind) {
-                                //TODO: how to calculate total when db.find() applied?    
-                                response.total_rows = 0;
-                                return response;
-                            } else if (mapreduce && !applyPaging) {
-                                response.total_rows = 0;
-                                $.each(response.rows, function () {
-                                    if (this.doc._id.indexOf("_design/") !== 0) {
-                                        response.total_rows += 1;
+                        var that = this,
+                            filter = options.data.filter,
+                            sort = options.data.sort,
+                            mapreduce = that.queryPlugin === queryPlugins.MAPREDUCE,
+                            pouchdbfind = that.queryPlugin === queryPlugins.POUCHDBFIND,
+                            fieldViewAndDir = mapreduce ? that._getFieldViewAndDirForSort(sort) : undefined,
+                            findSelector = pouchdbfind ? that._kendoFilterToFindSelector(filter, sort) : undefined,
+                            findSort = pouchdbfind ? that._kendoSortToFindSort(sort) : undefined,
+                            filterGoodForAllDocs = that._isEmptyFilter(filter) || (mapreduce && that._isIdRangeFilter(filter)),
+                            sortGoodForAllDocs = that._isEmptySort(sort) || that._isIdSort(sort),
+                            useAllDocs = filterGoodForAllDocs && sortGoodForAllDocs && !that.defaultView && !findSelector,
+                            getQueryMethodByQueryPlugin = function () {
+                                if (mapreduce) {
+                                    if (!that.db.query) {
+                                        throw new Error("db.query is needed to use mapreduce method, but it does not exists");
                                     }
+                                    return that.db.query.bind(that.db, fieldViewAndDir.fieldView);
+                                } else if (pouchdbfind) {
+                                    if (!that.db.find) {
+                                        throw new Error("db.find is needed to use mapreduce method, but it does not exists");
+                                    }
+                                    return that.db.find;
+                                }
+                                throw new Error(kendo.format("queryPlugin {0} is not supported", that.queryPlugin));
+                            },
+                            queryMethod = useAllDocs ? that.db.allDocs : getQueryMethodByQueryPlugin(),
+                            applyFilter,
+                            applyPaging,
+                            skip,
+                            limit = options.data.pageSize,
+                            page = options.data.page,
+                            //returns total number of design docs in database
+                            countDocsToSubtract = function () {
+                                if (!useAllDocs || applyFilter) { //When allDocs is used, design documents are returned and needed to be subtracted
+                                    return PouchDB.utils.Promise.resolve(0);
+                                }
+                                return that.db.allDocs({ startkey: "_design/", endkey: "_design\uffff" }).then(function (result) {
+                                    return result.rows.length;
                                 });
-                                return response;
-                            } else if (mapreduce) {
-                                var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions);
-                                return queryMethod.call(that.db, totalQueryOptions)
-                                    .then(function (totalResult) {
-                                        if (useAllDocs) {
-                                            response.total_rows = totalResult.rows.length;
-                                            return response;
-                                        }
-                                        response.total_rows = totalResult.rows.length; //strangely, even when reduce:"_count" used, rows are still returned.
-                                        return response;
-                                    });
-                            }
-                            throw new Error(kendo.format("Does not know how to calculate total for queryPlugin '{0}'", that.queryPlugin));
-                        };
+                            },
+                            filterQueryOptions;
 
-                    countDocsToSubtract().then(function (totalRowsToSubtract) {
-                            return queryMethod.call(that.db, queryOptions)
-                                .then(function (response) {
-                                    return applyTotalRowsOnResponse(response, totalRowsToSubtract);
-                                });
-                        })
-                        .then(function (response) {
-                            options.success(response);
-                        })
-                        .catch(function (err) {
-                            options.error(err, err.status, err);
-                        });
+                        that._validateFilter(options.data.filter, options.data.sort);
+                        filterQueryOptions = (useAllDocs || mapreduce) ? this._getFilterQueryOptions(options.data.filter) : undefined;
+                        applyFilter = !!filterQueryOptions;
+
+                        if (limit !== undefined) {
+                            if (page === undefined) {
+                                page = 1;
+                            }
+                            skip = limit * (page - 1);
+                        } else {
+                            skip = undefined;
+                        }
+                        applyPaging = (skip !== undefined || limit !== undefined);
+
+                        var descending = fieldViewAndDir ? fieldViewAndDir.descending : undefined,
+                            include_docs = (useAllDocs || mapreduce) ? true : undefined,
+                            queryOptions = $.extend({
+                                include_docs: include_docs,
+                                descending: descending,
+                                skip: skip,
+                                limit: limit,
+                                selector: findSelector,
+                                sort: findSort
+                            }, filterQueryOptions),
+                            //calculates total rows and sets total_rows on response accordingly
+                            applyTotalRowsOnResponse = function (response, totalRowsToSubtract) {
+                                if (useAllDocs && !applyFilter) {
+                                    response.total_rows -= totalRowsToSubtract; //subtracts design documents from total_rows
+                                    return response;
+                                } else if (pouchdbfind) {
+                                    //TODO: how to calculate total when db.find() applied?    
+                                    response.total_rows = 0;
+                                    return response;
+                                } else if (mapreduce && !applyPaging) {
+                                    response.total_rows = 0;
+                                    $.each(response.rows, function () {
+                                        if (this.doc._id.indexOf("_design/") !== 0) {
+                                            response.total_rows += 1;
+                                        }
+                                    });
+                                    return response;
+                                } else if (mapreduce) {
+                                    var totalQueryOptions = $.extend({ include_docs: false, reduce: "_count" }, filterQueryOptions);
+                                    return queryMethod.call(that.db, totalQueryOptions)
+                                        .then(function (totalResult) {
+                                            if (useAllDocs) {
+                                                response.total_rows = totalResult.rows.length;
+                                                return response;
+                                            }
+                                            response.total_rows = totalResult.rows.length; //strangely, even when reduce:"_count" used, rows are still returned.
+                                            return response;
+                                        });
+                                }
+                                throw new Error(kendo.format("Does not know how to calculate total for queryPlugin '{0}'", that.queryPlugin));
+                            };
+
+                        countDocsToSubtract().then(function (totalRowsToSubtract) {
+                                return queryMethod.call(that.db, queryOptions)
+                                    .then(function (response) {
+                                        return applyTotalRowsOnResponse(response, totalRowsToSubtract);
+                                    });
+                            })
+                            .then(function (response) {
+                                options.success(response);
+                            })
+                            .catch(function (err) {
+                                options.error(err, err.status, err);
+                            });
+
+                    } catch (err) {
+                        options.error(err, err.message, err);
+                    }
 
                 },
 
@@ -562,9 +576,10 @@
         //Remember to check _ispouchdb property on each overriden function
         var PouchableDataSource = kendo.data.DataSource.extend({
             //_ispouchdb property will be set if pouchdb type
-            init: function (options) {
+            init: function (opts) {
+                var options = opts;
                 if (options && options.type && options.type === "pouchdb") {
-                    var that = this, Model;
+                    var Model;
 
                     options = $.extend(true, {}, options); //prevents aliasing
 
@@ -612,7 +627,10 @@
 
                 }
 
-                kendo.data.DataSource.fn.init.apply(this, arguments);
+                //Call base init with new options.
+                var newArgs = Array.prototype.slice.call(arguments, 1);
+                newArgs.unshift(options);
+                kendo.data.DataSource.fn.init.apply(this, newArgs);
             },
 
             //gets model id and calls original DataSource's get with id transformed by pouchCollate.toIndexableString.
