@@ -239,7 +239,7 @@
                                 options.success(response);
                             })
                             .catch(function (err) {
-                                options.error(err, err.status, err);
+                                options.error(err, err.status || err.message, err);
                             });
 
                     } catch (err) {
