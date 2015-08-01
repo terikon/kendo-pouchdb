@@ -1,7 +1,7 @@
 ﻿{
     $schema: "http://json.schemastore.org/chutzpah",
     "Framework": "jasmine",
-    "TestFileTimeout": 3000,
+    "TestFileTimeout": 5000,
     "TestHarnessReferenceMode": "Normal",
     "TestHarnessLocationMode": "Custom",
     "TestHarnessDirectory": "node_modules/jasmine-core/lib/jasmine-core",
