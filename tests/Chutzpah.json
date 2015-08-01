@@ -4,7 +4,7 @@
     "TestFileTimeout": 3000,
     "TestHarnessReferenceMode": "Normal",
     "TestHarnessLocationMode": "SettingsFileAdjacent",
-    "TestHarnessDirectory": "lib/jasmine",
+    "TestHarnessDirectory": "../node_modules/jasmine-core/lib",
     "References": [
         { "Path": "../node_modules/jquery/dist/jquery.min.js" },
         { "Path": "../node_modules/underscore/underscore-min.js" },

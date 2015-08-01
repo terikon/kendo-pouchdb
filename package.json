@@ -34,6 +34,7 @@
   },
   "homepage": "https://github.com/terikon/kendo-pouchdb",
   "dependencies": {
+    "jasmine-core": "^2.3.4",
     "jquery": "*",
     "pouchdb": "^3.4.0",
     "pouchdb-collate": "^1.2.0",
