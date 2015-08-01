@@ -171,7 +171,19 @@
                                     return result.rows.length;
                                 });
                             },
-                            filterQueryOptions;
+                            filterQueryOptions,
+                            cleanUndefinedProperties = function (obj) {
+                                var propertiesToClean = [];
+                                $.each(obj, function (key, value) {
+                                    if (value === undefined) {
+                                        propertiesToClean.push(key);
+                                    }
+                                });
+                                $.each(propertiesToClean, function (index, property) {
+                                    delete obj[property];
+                                });
+                                return obj;
+                            };
 
                         that._validateFilter(options.data.filter, options.data.sort);
                         filterQueryOptions = (useAllDocs || mapreduce) ? this._getFilterQueryOptions(options.data.filter) : undefined;
@@ -189,14 +201,14 @@
 
                         var descending = fieldViewAndDir ? fieldViewAndDir.descending : undefined,
                             include_docs = (useAllDocs || mapreduce) ? true : undefined,
-                            queryOptions = $.extend({
+                            queryOptions = cleanUndefinedProperties($.extend({
                                 include_docs: include_docs,
                                 descending: descending,
                                 skip: skip,
                                 limit: limit,
                                 selector: findSelector,
                                 sort: findSort
-                            }, filterQueryOptions),
+                            }, filterQueryOptions)),
                             //calculates total rows and sets total_rows on response accordingly
                             applyTotalRowsOnResponse = function (response, totalRowsToSubtract) {
                                 if (useAllDocs && !applyFilter) {

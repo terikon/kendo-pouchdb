@@ -1,12 +1,12 @@
 {
   "name": "kendo-pouchdb",
   "main": "kendo-pouchdb.js",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Kendo UI adapter for PouchDB",
 
   "homepage": "https://github.com/terikon/kendo-pouchdb",
   "authors": [{
-    "name": "Terikon Software",
+    "name": "Terikon Apps",
     "email": "npm@terikon.com",
     "homepage": "http://il.linkedin.com/in/romanviskin"
   }],
@@ -34,7 +34,7 @@
   "license": "MIT",
 
   "dependencies": {
-    "jquery": "*",
+    "jquery": "^2.1.4",
     "pouchdb": "^3.4.0",
     "pouchdb-collate": "^1.2.0",
     "pouchdb-find": "^0.3.4"
