@@ -1,0 +1,22 @@
+﻿{
+    $schema: "http://json.schemastore.org/chutzpah",
+    "Framework": "jasmine",
+    "TestFileTimeout": 3000,
+    "TestHarnessReferenceMode": "Normal",
+    "TestHarnessLocationMode": "SettingsFileAdjacent",
+    "TestHarnessDirectory": "lib/jasmine",
+    "References": [
+        { "Path": "../node_modules/jquery/dist/jquery.min.js" },
+        { "Path": "../node_modules/underscore/underscore-min.js" },
+        { "Path": "../vendor/kendo/kendo.core.js" },
+        { "Path": "../vendor/kendo/kendo.data.js" },
+        { "Path": "../node_modules/pouchdb/dist/pouchdb.js" },
+        { "Path": "../node_modules/pouchdb-collate/dist/pouchdb-collate.js" },
+        { "Path": "../node_modules/pouchdb-find/dist/pouchdb.find.js" },
+        { "Path": "../kendo-pouchdb.js" },
+        { "Path": "testHelper.js" }
+    ],
+    "Tests": [ 
+        { "Path": "tests/spec" }
+    ]
+}
