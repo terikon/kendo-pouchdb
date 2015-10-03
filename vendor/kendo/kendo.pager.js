@@ -145,13 +145,18 @@
 
             if (options.pageSizes){
                 if (!that.element.find(".k-pager-sizes").length){
-                     $('<span class="k-pager-sizes k-label"><select/>' + options.messages.itemsPerPage + "</span>")
+                    var pageSizes = options.pageSizes.length ? options.pageSizes : ["all", 5, 10, 20];
+                    var pageItems = $.map(pageSizes, function(size) {
+                        if (size.toLowerCase && size.toLowerCase() === "all") {
+                            return "<option value='all'>" + options.messages.allPages + "</option>";
+                        }
+
+                        return "<option>" + size + "</option>";
+                    });
+
+                    $('<span class="k-pager-sizes k-label"><select/>' + options.messages.itemsPerPage + "</span>")
                         .appendTo(that.element)
-                        .find("select")
-                        .html($.map($.isArray(options.pageSizes) ? options.pageSizes : [5,10,20], function(page){
-                            return "<option>" + page + "</option>";
-                        }).join(""))
-                        .end()
+                        .find("select").html(pageItems.join("")).end()
                         .appendTo(that.element);
                 }
 
@@ -181,7 +186,7 @@
 
             that.element
                 .on(CLICK + NS , "a", proxy(that._click, that))
-                .addClass("k-pager-wrap k-widget");
+                .addClass("k-pager-wrap k-widget k-floatwrap");
 
             that.element.on(CLICK + NS , ".k-current-page", proxy(that._toggleActive, that));
 
@@ -223,6 +228,7 @@
             pageSizes: false,
             refresh: false,
             messages: {
+                allPages: "All",
                 display: "{0} - {1} of {2} items",
                 empty: "No items to display",
                 page: "Page",
@@ -335,12 +341,20 @@
             }
 
             if (options.pageSizes) {
+                var hasAll = that.element.find(".k-pager-sizes option[value='all']").length > 0;
+                var selectAll = hasAll && pageSize === this.dataSource.total();
+                var text = pageSize;
+                if (selectAll) {
+                    pageSize = "all";
+                    text = options.messages.allPages;
+                }
+
                 that.element
                     .find(".k-pager-sizes select")
                     .val(pageSize)
                     .filter("[" + kendo.attr("role") + "=dropdownlist]")
                     .kendoDropDownList("value", pageSize)
-                    .kendoDropDownList("text", pageSize); // handles custom values
+                    .kendoDropDownList("text", text); // handles custom values
             }
         },
 
@@ -366,14 +380,18 @@
         },
 
         _change: function(e) {
-            var pageSize = parseInt(e.currentTarget.value, 10);
+            var value = e.currentTarget.value;
+            var pageSize = parseInt(value, 10);
+            var dataSource = this.dataSource;
 
             if (!isNaN(pageSize)){
-               this.dataSource.pageSize(pageSize);
+                dataSource.pageSize(pageSize);
+            } else if ((value + "").toLowerCase() == "all") {
+                dataSource.pageSize(dataSource.total());
             }
         },
 
-        _toggleActive: function(e) {
+        _toggleActive: function() {
             this.list.toggleClass("k-state-expanded");
         },
 
@@ -388,7 +406,7 @@
         },
 
         totalPages: function() {
-            return Math.ceil((this.dataSource.total() || 0) / this.pageSize());
+            return Math.ceil((this.dataSource.total() || 0) / (this.pageSize() || 1));
         },
 
         pageSize: function() {
